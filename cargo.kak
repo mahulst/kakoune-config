@@ -172,10 +172,28 @@ define-command cargo-previous-error -docstring 'Jump to the previous cargo error
     }
 }
 
+define-command cargo-run-example -docstring 'Run current buffer as example' %{
+    evaluate-commands %sh{
+        filename=$(basename "$kak_buffile")
+        echo "cargo run --example ${filename%.*}"
+    }
+}
+
+define-command cargo-run-example-release -docstring 'Run current buffer as example in release' %{
+    evaluate-commands %sh{
+        filename=$(basename "$kak_buffile")
+        echo "cargo run --example ${filename%.*} --release"
+    }
+}
+
 declare-user-mode cargo
 
 map -docstring "Run tests" \
 	global cargo t %{: cargo test<ret>}
+map -docstring "Run example" \
+	global cargo e %{: cargo-run-example <ret>}
+map -docstring "Run example --release" \
+	global cargo r %{: cargo-run-example-release<ret>}
 map -docstring "Check syntax" \
 	global cargo c %{: cargo check --all-targets<ret>}
 map -docstring "Build documentation" \

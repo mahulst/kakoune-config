@@ -4,6 +4,9 @@ source ~/.config/kak/cargo.kak
 source ~/.config/kak/kak-fetch.kak
 source ~/.config/kak/git.kak
 
+# highlight column 120
+add-highlighter global/hl-col-120 column 120 default,rgb:221823+d
+
 colorscheme one-dark
 set-option global ui_options terminal_enable_mouse=false
 
@@ -53,6 +56,7 @@ map global window -docstring 'select pane up' k %{:nop %sh{TMUX="${kak_client_en
 map global window -docstring 'select pane right' l %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -R}<ret>}
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 
+# IDE command
 define-command ide -params 0..1 %{
     try %{ rename-session %arg{1} }
 
@@ -79,8 +83,75 @@ define-command ide -params 0..1 %{
     }
 
 }
-
-map -docstring "Ruhn commands" global user <r> \
+map -docstring "Run commands" global user <r> \
     %{:enter-user-mode cargo<ret>}
+
+map -docstring "Git" global user <g> \
+    %{:enter-user-mode git<ret>}
+
+
+define-command -override add-surrounding-pair -params 2 -docstring 'add surrounding pairs left and right to selection' %{
+  evaluate-commands -no-hooks -save-regs '"' %{
+    set-register '"' %arg{1}
+    execute-keys -draft P
+    set-register '"' %arg{2}
+    execute-keys -draft p
+  }
+}
+
+define-command surround-replace -docstring 'prompt for a surrounding pair and replace it with another' %{
+  on-key %{
+    surround-replace-sub %val{key}
+  }
+}
+
+define-command -hidden surround-replace-sub -params 1 %{
+	on-key %{
+            evaluate-commands -no-hooks -draft %{
+              execute-keys "<a-a>%arg{1}"
+
+              # select the surrounding pair and add the new one around it
+              enter-user-mode surround-add
+              execute-keys %val{key}
+            }
+
+            # delete the old one
+            match-delete-surround-key %arg{1}
+	}
+}
+
+define-command -hidden match-delete-surround-key -params 1 %{
+  execute-keys -draft "<a-a>%arg{1}i<del><esc>a<backspace><esc>"
+}
+
+declare-user-mode surround-add
+map global surround-add "'" ":add-surrounding-pair ""'"" ""'""<ret>" -docstring 'surround selections with quotes'
+map global surround-add ' ' ':add-surrounding-pair " " " "<ret>'     -docstring 'surround selections with pipes'
+map global surround-add '"' ':add-surrounding-pair ''"'' ''"''<ret>' -docstring 'surround selections with double quotes'
+map global surround-add '(' ':add-surrounding-pair ( )<ret>'         -docstring 'surround selections with curved brackets'
+map global surround-add ')' ':add-surrounding-pair ( )<ret>'         -docstring 'surround selections with curved brackets'
+map global surround-add '*' ':add-surrounding-pair * *<ret>'         -docstring 'surround selections with stars'
+map global surround-add '<' ':add-surrounding-pair <lt> <gt><ret>'   -docstring 'surround selections with chevrons'
+map global surround-add '>' ':add-surrounding-pair <lt> <gt><ret>'   -docstring 'surround selections with chevrons'
+map global surround-add '[' ':add-surrounding-pair [ ]<ret>'         -docstring 'surround selections with square brackets'
+map global surround-add ']' ':add-surrounding-pair [ ]<ret>'         -docstring 'surround selections with square brackets'
+map global surround-add '_' ':add-surrounding-pair "_" "_"<ret>'     -docstring 'surround selections with underscores'
+map global surround-add '{' ':add-surrounding-pair { }<ret>'         -docstring 'surround selections with angle brackets'
+map global surround-add '|' ':add-surrounding-pair | |<ret>'         -docstring 'surround selections with pipes'
+map global surround-add '}' ':add-surrounding-pair { }<ret>'         -docstring 'surround selections with angle brackets'
+map global surround-add '«' ':add-surrounding-pair « »<ret>'         -docstring 'surround selections with French chevrons'
+map global surround-add '»' ':add-surrounding-pair « »<ret>'         -docstring 'surround selections with French chevrons'
+map global surround-add '“' ':add-surrounding-pair “ ”<ret>'         -docstring 'surround selections with French chevrons'
+map global surround-add '”' ':add-surrounding-pair “ ”<ret>'         -docstring 'surround selections with French chevrons'
+map global surround-add ` ':add-surrounding-pair ` `<ret>'           -docstring 'surround selections with ticks'
+
+unmap global normal m
+declare-user-mode match-mode
+map global match-mode i '<a-i>' -docstring "Match inside"
+map global match-mode a '<a-a>' -docstring "Match around"
+map global match-mode s ':enter-user-mode surround-add<ret>'  -docstring 'add surrounding pairs'
+map global match-mode r ':surround-replace<ret>'              -docstring 'replace surrounding pairs'
+map -docstring "Match" global normal <m> \
+    %{:enter-user-mode match-mode<ret>}
 
 
