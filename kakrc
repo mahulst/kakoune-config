@@ -3,6 +3,7 @@ eval %sh{ kak-tree-sitter -dks --session $kak_session }
 source ~/.config/kak/cargo.kak
 source ~/.config/kak/kak-fetch.kak
 source ~/.config/kak/git.kak
+source ~/.config/kak/filetree.kak
 
 # highlight column 120
 add-highlighter global/hl-col-120 column 120 default,rgb:221823+d
@@ -31,6 +32,7 @@ define-command extra-paste-system -docstring 'paste from the system clipboard' %
 }
 map -docstring "Find file" global user f ':my-file-picker<ret>' 
 map -docstring "Write all" global user s ':write-all<ret>' 
+map global user '/' ':comment-line<ret>' -docstring 'comment line'
 map global user y ':extra-yank-system<ret>'  -docstring 'yank to system clipboard'
 map global user p ':extra-paste-system<ret>' -docstring 'paste from system clipboard'
 
@@ -47,13 +49,27 @@ map global object e '<a-semicolon>lsp-object Function Method<ret>' -docstring 'L
 map global object k '<a-semicolon>lsp-object Class Interface Struct<ret>' -docstring 'LSP class interface or struct'
 map global object d '<a-semicolon>lsp-diagnostic-object --include-warnings<ret>' -docstring 'LSP errors and warnings'
 map global object D '<a-semicolon>lsp-diagnostic-object<ret>' -docstring 'LSP errors'
+map global lsp k ':lsp-hover<ret>'                  -docstring 'hover'
+map global lsp K ':lsp-hover-buffer<ret>'           -docstring 'hover in a dedicated buffer'
 
 # window
 declare-user-mode window
+define-command tmux-split -params 1 -docstring 'split tmux pane' %{
+  nop %sh{
+    tmux split-window $1 kak -c $kak_session
+  }
+}
+
 map global window -docstring 'select pane left' h %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -L}<ret>}
 map global window -docstring 'select pane down' j %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -D}<ret>}
 map global window -docstring 'select pane up' k %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -U}<ret>}
 map global window -docstring 'select pane right' l %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -R}<ret>}
+map global window -docstring 'zoom' z %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux resize-pane -Z}<ret>}
+map global window -docstring 'split horizontal' <minus> ":tmux-split -v<ret>"
+map global window -docstring 'split vertical' '|'  ":tmux-split -h<ret>"
+map global window -docstring 'start ide' 'i'  ":ide <ret>"
+map global window -docstring 'start ide' 'x'  ":close-ide <ret>"
+
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 
 # IDE command
@@ -72,17 +88,28 @@ define-command ide -params 0..1 %{
 
     nop %sh{
         if [[ -n $TMUX ]]; then
-            tmux select-layout tiled
-            tmux resize-pane -t 0 -y 90
-            tmux resize-pane -t 1 -x 140
-            tmux select-pane -t 0
-            tmux move-pane -s 3 -t 1
-            tmux resize-pane -t 2 -y 20
-            tmux select-pane -t 0
+            tmux select-layout main-vertical
+            tmux swap-pane -s 3 -t 1
+            tmux swap-pane -s 3 -t 2
+            tmux resize-pane -t 2 -y 70%
+            tmux select-pane -t 2
         fi
     }
 
 }
+
+define-command close-ide %{
+    evaluate-commands -try-client %opt{toolsclient} %{
+        quit
+    }
+    evaluate-commands -try-client %opt{docsclient} %{
+        quit
+    }
+    evaluate-commands -try-client %opt{jumpclient} %{
+        quit
+    }
+}
+
 map -docstring "Run commands" global user <r> \
     %{:enter-user-mode cargo<ret>}
 
@@ -153,5 +180,4 @@ map global match-mode s ':enter-user-mode surround-add<ret>'  -docstring 'add su
 map global match-mode r ':surround-replace<ret>'              -docstring 'replace surrounding pairs'
 map -docstring "Match" global normal <m> \
     %{:enter-user-mode match-mode<ret>}
-
 
