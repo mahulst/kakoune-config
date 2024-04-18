@@ -38,6 +38,7 @@ All the optional arguments are forwarded to the cargo utility} \
 
         printf %s\\n "
             evaluate-commands -try-client '$kak_opt_toolsclient' %{
+               write-all
                edit! -fifo ${output} -scroll *cargo*
                set-option buffer filetype cargo
                set-option buffer cargo_current_error_line 1
@@ -173,6 +174,13 @@ define-command cargo-previous-error -docstring 'Jump to the previous cargo error
 }
 
 define-command cargo-run-example -docstring 'Run current buffer as example' %{
+    evaluate-commands %{
+        write-all
+        set-register e %sh{
+            filename=$(basename "$kak_buffile")
+            echo "${filename%.*}"
+        } 
+    }
     evaluate-commands %sh{
         filename=$(basename "$kak_buffile")
         echo "cargo run --example ${filename%.*}"
@@ -180,20 +188,68 @@ define-command cargo-run-example -docstring 'Run current buffer as example' %{
 }
 
 define-command cargo-run-example-release -docstring 'Run current buffer as example in release' %{
+    evaluate-commands %{
+        write-all
+        set-register e %sh{
+            filename=$(basename "$kak_buffile")
+            echo "${filename%.*}"
+        } 
+    }
     evaluate-commands %sh{
         filename=$(basename "$kak_buffile")
         echo "cargo run --example ${filename%.*} --release"
     }
 }
 
-declare-user-mode cargo
+define-command cargo-run-run -docstring 'Run as "cargo run"' %{
+    evaluate-commands %{
+        write-all
+    }
+    evaluate-commands %sh{
+        echo "cargo run"
+    }
+}
+define-command cargo-run-run-release -docstring 'Run as "cargo run --release"' %{
+    evaluate-commands %{
+        write-all
+    }
+    evaluate-commands %sh{
+        echo "cargo run --release"
+    }
+}
 
+define-command cargo-run-last-example -docstring 'Run last ran example' %{
+    evaluate-commands %{
+        write-all
+    }
+    evaluate-commands %{
+        cargo-run-name-example %reg{e}
+    }
+}
+
+define-command cargo-run-name-example -params 1 -docstring 'Run last ran example' %{
+    evaluate-commands %{
+        write-all
+    }
+    evaluate-commands %sh{
+        echo "cargo run --example %arg{1} --release"
+    }
+}
+declare-user-mode cargo
+# TODO make all release commands be capital letters of normal command
+# TODO make r r remember al last commands
+map -docstring "Run last example" \
+	global cargo r %{: cargo-run-last-example <ret>}
+map -docstring "Run" \
+	global cargo f %{: cargo-run-run <ret>}
+map -docstring "Run --release" \
+	global cargo w %{: cargo-run-run-release <ret>}
 map -docstring "Run tests" \
 	global cargo t %{: cargo test<ret>}
 map -docstring "Run example" \
 	global cargo e %{: cargo-run-example <ret>}
 map -docstring "Run example --release" \
-	global cargo r %{: cargo-run-example-release<ret>}
+	global cargo l %{: cargo-run-example-release<ret>}
 map -docstring "Check syntax" \
 	global cargo c %{: cargo check --all-targets<ret>}
 map -docstring "Build documentation" \

@@ -1,9 +1,38 @@
 eval %sh{ kak-tree-sitter -dks --session $kak_session }
+hook global BufSetOption kts_lang=(javascript|typescript) %{
+  eval %sh{
+    case $kak_bufname in
+      (*\.jsx) echo "set-option buffer kts_lang jsx";;
+      (*\.tsx) echo "set-option buffer kts_lang tsx";;
+    esac
+  }
+}
 
 source ~/.config/kak/cargo.kak
-source ~/.config/kak/kak-fetch.kak
-source ~/.config/kak/git.kak
-source ~/.config/kak/filetree.kak
+source ~/.config/kak/kaktree/rc/kaktree.kak
+source ~/.config/kak/clipboard.kak
+source ~/.config/kak/jest.kak
+source ~/.config/kak/crosshairs.kak
+source ~/.config/kak/tab.kak
+source ~/.config/kak/fzf/rc/fzf.kak
+source ~/.config/kak/fzf/rc/modules/fzf-cd.kak  
+source ~/.config/kak/fzf/rc/modules/fzf-file.kak  
+source ~/.config/kak/fzf/rc/modules/fzf-buffer.kak  
+source ~/.config/kak/fzf/rc/modules/fzf-grep.kak  
+source ~/.config/kak/fzf/rc/modules/fzf-project.kak  
+source ~/.config/kak/fzf/rc/modules/fzf-search.kak
+hook global BufOpenFile .* expandtab
+hook global BufNewFile  .* expandtab
+hook global WinCreate .* %{ kakboard-enable }
+hook global WinSetOption filetype=kaktree %{
+    remove-highlighter buffer/numbers
+    remove-highlighter buffer/matching
+    remove-highlighter buffer/wrap
+    remove-highlighter buffer/show-whitespaces
+}
+kaktree-enable
+map global user t ':kaktree-toggle<ret>'  -docstring 'toggle file tree'
+
 
 # highlight column 120
 add-highlighter global/hl-col-120 column 120 default,rgb:221823+d
@@ -13,9 +42,6 @@ set-option global ui_options terminal_enable_mouse=false
 
 add-highlighter global/ number-lines -relative
 
-define-command my-file-picker %{
-  prompt -shell-script-candidates 'fd --type file' open: %{ edit -existing %val{text} }
-}
 declare-option str extra_yank_system_clipboard_cmd %sh{
   test "$(uname)" = "Darwin" && echo 'pbcopy' || echo 'xclip'
 }
@@ -30,16 +56,43 @@ define-command extra-yank-system -docstring 'yank into the system clipboard' %{
 define-command extra-paste-system -docstring 'paste from the system clipboard' %{
   execute-keys -draft "!%opt{extra_paste_system_clipboard_cmd}<ret>"
 }
-map -docstring "Find file" global user f ':my-file-picker<ret>' 
+map -docstring "Find " global user f ':fzf-mode<ret>' 
 map -docstring "Write all" global user s ':write-all<ret>' 
 map global user '/' ':comment-line<ret>' -docstring 'comment line'
-map global user y ':extra-yank-system<ret>'  -docstring 'yank to system clipboard'
-map global user p ':extra-paste-system<ret>' -docstring 'paste from system clipboard'
+
+map global user d ':buffer *debug* <ret>' -docstring 'open debug buffer'
 
 # lsp
 eval %sh{kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
-hook global WinSetOption filetype=(rust|javascript|typescript|css|html) %{
+declare-option -hidden str modeline_progress ""
+define-command -hidden -params 6 -override lsp-handle-progress %{
+    set global modeline_progress %sh{
+        if ! "$6"; then
+            echo "$2${5:+" ($5%)"}${4:+": $4"}"
+        fi
+    }
+}
+
+
+set global modelinefmt "%%opt{modeline_progress} %opt{modelinefmt}"
+hook global WinSetOption filetype=(rust|javascript|typescript|json|tsx|css|html) %{
+    echo -debug %opt{filetype}
     lsp-enable-window
+}
+# define-command prettier -docstring 'run prettier over current file' %{
+#     nop %sh{ npx prettier --write %val{buffile}}
+# }
+ 
+hook global WinSetOption filetype=(rust) %{
+    #remove-hooks buffer cargo-hooks
+    unmap global lsp f ":format <ret>"
+    map global lsp f ":lsp-formatting <ret>" -docstring "format using lsp"
+}
+
+hook global WinSetOption filetype=(javascript|typescript|tsx|json|html) %{
+  set-option window formatcmd "npx prettier --stdin-filepath=%val{buffile}"
+
+  map global lsp f ":format <ret>" -docstring "format prettier"
 }
 map global user c %{:enter-user-mode lsp<ret>} -docstring "LSP mode"
 map global insert <tab> '<a-;>:try lsp-snippets-select-next-placeholders catch %{ execute-keys -with-hooks <lt>tab> }<ret>' -docstring 'Select next snippet placeholder'
@@ -68,7 +121,7 @@ map global window -docstring 'zoom' z %{:nop %sh{TMUX="${kak_client_env_TMUX}" t
 map global window -docstring 'split horizontal' <minus> ":tmux-split -v<ret>"
 map global window -docstring 'split vertical' '|'  ":tmux-split -h<ret>"
 map global window -docstring 'start ide' 'i'  ":ide <ret>"
-map global window -docstring 'start ide' 'x'  ":close-ide <ret>"
+map global window -docstring 'close ide' 'x'  ":close-ide <ret>"
 
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 
@@ -112,6 +165,9 @@ define-command close-ide %{
 
 map -docstring "Run commands" global user <r> \
     %{:enter-user-mode cargo<ret>}
+
+map -docstring "Run jest" global user <j> \
+    %{:enter-user-mode jest<ret>}
 
 map -docstring "Git" global user <g> \
     %{:enter-user-mode git<ret>}
@@ -176,8 +232,21 @@ unmap global normal m
 declare-user-mode match-mode
 map global match-mode i '<a-i>' -docstring "Match inside"
 map global match-mode a '<a-a>' -docstring "Match around"
+map global match-mode m 'M' -docstring "Match matching symbol"
 map global match-mode s ':enter-user-mode surround-add<ret>'  -docstring 'add surrounding pairs'
 map global match-mode r ':surround-replace<ret>'              -docstring 'replace surrounding pairs'
 map -docstring "Match" global normal <m> \
     %{:enter-user-mode match-mode<ret>}
 
+
+# scratch files
+declare-user-mode scratch
+
+map -docstring "Scratch file" global user e  %{:enter-user-mode scratch<ret>}
+
+map -docstring "JSON" global scratch j %{
+    evaluate-commands %sh {
+      echo ":edit /tmp/json_scratch_$(mktemp --dry-run XXXXXX).json <ret>"
+      echo ":set buffer filetype json <ret>"
+    }
+}
