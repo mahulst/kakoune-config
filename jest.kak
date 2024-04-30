@@ -121,13 +121,13 @@ define-command jest-run-file -docstring 'Run current buffer as jest test' %{
     evaluate-commands %{
         write-all
         set-register e %sh{
-            filename=$("$kak_buffile")
-            echo "${filename}"
+            filename=$(basename "$kak_buffile")
+            echo "${filename%.*}"
         } 
     }
-    evaluate-commands %sh{
-        filename=$( "$kak_buffile")
-        echo "jest -- ${filename}"
+
+    evaluate-commands %{
+        jest %reg{e}
     }
 }
 
@@ -136,22 +136,24 @@ define-command jest-run-last-test -docstring 'Run last ran example' %{
         write-all
     }
     evaluate-commands %{
-        jest-run-name-test %reg{e}
+        jest %reg{e}
     }
 }
-
-define-command jest-run-name-test -params 1 -docstring 'Run test ' %{
+define-command jest-run-all -docstring 'Run all tests' %{
     evaluate-commands %{
         write-all
     }
-    evaluate-commands %sh{
-        echo "npm run jest -- %arg{1}"
+    evaluate-commands %{
+        jest 
     }
 }
+
 declare-user-mode jest
 
 map -docstring "Run last test" \
 	global jest r %{: jest-run-last-test  <ret>}
+map -docstring "Run all test" \
+	global jest t %{: jest-run-all  <ret>}
 map -docstring "Run test" \
-	global jest t %{: jest-run-file <ret>}
+	global jest f %{: jest-run-file <ret>}
 

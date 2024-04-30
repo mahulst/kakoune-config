@@ -31,7 +31,7 @@ hook global WinSetOption filetype=kaktree %{
     remove-highlighter buffer/show-whitespaces
 }
 kaktree-enable
-map global user t ':kaktree-toggle<ret>'  -docstring 'toggle file tree'
+map global user t ':kaktree--display<ret>'  -docstring 'display file tree'
 
 
 # highlight column 120
