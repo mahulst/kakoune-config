@@ -7,7 +7,30 @@ hook global BufSetOption kts_lang=(javascript|typescript) %{
     esac
   }
 }
+# Debugging face colors
+declare-option range-specs face_colors
 
+define-command color-faces %{
+    buffer *debug*
+    debug faces
+    try %{ remove-highlighter buffer/face-colors }
+    set-option buffer face_colors %val{timestamp}
+
+    evaluate-commands -draft %{
+        execute-keys '%' s^Faces:\n(<space>\*<space>[^\n]*\n)*<ret>
+        execute-keys s ^<space>\*<space><ret>
+        execute-keys lt:
+
+        evaluate-commands -itersel %{
+            eval %sh{
+                printf "set-option -add buffer face_colors %s|%s\n" \
+                "$kak_selection_desc" "$kak_selection"
+            }
+        }
+    }
+
+    add-highlighter buffer/face-colors ranges face_colors
+}
 source ~/.config/kak/cargo.kak
 source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
@@ -33,7 +56,49 @@ hook global WinSetOption filetype=kaktree %{
 kaktree-enable
 map global user t ':kaktree--display<ret>'  -docstring 'display file tree'
 
+set-face global HiddenSelection 'white,bright-red+F'
 
+declare-option range-specs hidden_selections_indicator_ranges
+declare-option str hidden_selections_above_and_below_indicator '●'
+declare-option str hidden_selections_above_indicator '▲'
+declare-option str hidden_selections_below_indicator '▼'
+
+# Add cursor when extra selections are outside of screen
+define-command update_hidden_selections_indicator_ranges %{
+  set-option window hidden_selections_indicator_ranges %val{timestamp}
+
+  try %{
+    # Determine multiple selections.
+    execute-keys -draft '<a-,>'
+
+    try %{
+      # Determine hidden selections above and below.
+      execute-keys -draft -save-regs '^tb' 'Zgt"tZgbx;"bZe"tzb"tz"b<a-z>u<a-z>a<a-,>'
+      set-option -add window hidden_selections_indicator_ranges "%val{cursor_line}.%val{cursor_char_column}+1|{HiddenSelection}%opt{hidden_selections_above_and_below_indicator}"
+    } catch %{
+      # Determine hidden selections above.
+      execute-keys -draft -save-regs '^t' 'Zgt"tZb"tzGe<a-z>a<a-,>'
+      set-option -add window hidden_selections_indicator_ranges "%val{cursor_line}.%val{cursor_char_column}+1|{HiddenSelection}%opt{hidden_selections_above_indicator}"
+    } catch %{
+      # Determine hidden selections below.
+      execute-keys -draft -save-regs '^b' 'Zgbx;"bZe"bzGg<a-z>a<a-,>'
+      set-option -add window hidden_selections_indicator_ranges "%val{cursor_line}.%val{cursor_char_column}+1|{HiddenSelection}%opt{hidden_selections_below_indicator}"
+    } catch %{
+    }
+  }
+}
+
+define-command sequence %{
+
+    execute-keys '10<plus>i,<space><c-r>#<esc>'
+}
+hook global NormalIdle '' update_hidden_selections_indicator_ranges
+hook global InsertIdle '' update_hidden_selections_indicator_ranges
+hook global PromptIdle '' update_hidden_selections_indicator_ranges
+
+# add-highlighter global/hidden_selections_indicator ref hidden_selections_indicator_ranges
+add-highlighter global/hidden_selections_indicator replace-ranges hidden_selections_indicator_ranges #remove duplicate cursors with esc 
+map global normal <esc> ';,'
 # highlight column 120
 add-highlighter global/hl-col-120 column 120 default,rgb:221823+d
 
@@ -47,7 +112,7 @@ declare-option str extra_yank_system_clipboard_cmd %sh{
 }
 
 declare-option str extra_paste_system_clipboard_cmd %sh{
-  test "$(uname)" = "Darwin" && echo 'pbpaste' || echo 'xsel -ob'
+ test "$(uname)" = "Darwin" && echo 'pbpaste' || echo 'xsel -ob'
 }
 define-command extra-yank-system -docstring 'yank into the system clipboard' %{
   execute-keys -draft "<a-!>%opt{extra_yank_system_clipboard_cmd}<ret>"

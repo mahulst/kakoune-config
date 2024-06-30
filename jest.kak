@@ -33,7 +33,7 @@ All the optional arguments are forwarded to the jest utility} \
         output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-jest.XXXXXXXX)/fifo
 
 mkfifo ${output}
-        ( eval npm run test  "$@" > ${output} 2>&1 ) > /dev/null 2>&1 < /dev/null &
+        ( eval npm run test  "$@ -- --no-color --no-highlight" > ${output} 2>&1 ) > /dev/null 2>&1 < /dev/null &
 
         printf %s\\n "
             evaluate-commands -try-client '$kak_opt_toolsclient' %{
