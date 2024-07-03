@@ -172,10 +172,10 @@ map global lsp K ':lsp-hover-buffer<ret>'           -docstring 'hover in a dedic
 
 # window
 declare-user-mode window
-define-command tmux-split -params 1 -docstring 'split tmux pane' %{
-  nop %sh{
-    tmux split-window $1 kak -c $kak_session
-  }
+define-command tmux-split -params 2 -docstring 'split tmux pane' %{
+    nop %sh{
+        tmux split-window $1 kak -c "$kak_session" 
+    }
 }
 
 map global window -docstring 'select pane left' h %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -L}<ret>}
@@ -183,8 +183,8 @@ map global window -docstring 'select pane down' j %{:nop %sh{TMUX="${kak_client_
 map global window -docstring 'select pane up' k %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -U}<ret>}
 map global window -docstring 'select pane right' l %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -R}<ret>}
 map global window -docstring 'zoom' z %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux resize-pane -Z}<ret>}
-map global window -docstring 'split horizontal' <minus> ":tmux-split -v<ret>"
-map global window -docstring 'split vertical' '|'  ":tmux-split -h<ret>"
+map global window -docstring 'split horizontal' <minus> ":tmux-split -v new<ret>"
+map global window -docstring 'split vertical' '|'  ":tmux-split -h new<ret>"
 map global window -docstring 'start ide' 'i'  ":ide <ret>"
 map global window -docstring 'close ide' 'x'  ":close-ide <ret>"
 
@@ -197,11 +197,10 @@ define-command ide -params 0..1 %{
 
     rename-client main
     set-option global jumpclient main
-
-    new rename-client tools
+    tmux-split -h tools
     set-option global toolsclient tools
 
-    new rename-client docs
+    tmux-split -v docs
     set-option global docsclient docs
 
     nop %sh{
