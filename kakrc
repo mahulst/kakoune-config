@@ -140,7 +140,7 @@ define-command -hidden -params 6 -override lsp-handle-progress %{
 
 
 set global modelinefmt "%%opt{modeline_progress} %opt{modelinefmt}"
-hook global WinSetOption filetype=(rust|javascript|typescript|json|tsx|css|html) %{
+hook global WinSetOption filetype=(rust|javascript|nix|typescript|json|tsx|css|html) %{
     echo -debug %opt{filetype}
     lsp-enable-window
 }
