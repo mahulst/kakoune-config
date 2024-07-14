@@ -73,7 +73,9 @@ hook global WinSetOption filetype=cargo %{
 }
 
 hook -group cargo-highlight global WinSetOption filetype=(?!cargo).* %{
-    remove-highlighter window/cargo
+    try %{
+        remove-highlighter window/cargo
+    }
 }
 
 hook global WinSetOption filetype=(?!cargo).* %{

@@ -1,4 +1,14 @@
-eval %sh{ kak-tree-sitter -dks --session $kak_session }
+eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
+
+hook global BufSetOption kts_lang=(javascript|typescript) %{
+  eval %sh{
+    case $kak_bufname in
+      (*\.jsx) echo "set-option buffer kts_lang jsx";;
+      (*\.tsx) echo "set-option buffer kts_lang tsx";;
+    esac
+  }
+}
+map global user k %{:enter-user-mode tree-sitter<ret>} -docstring "Tree Sitter"
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
     case $kak_bufname in
@@ -32,6 +42,7 @@ define-command color-faces %{
     add-highlighter buffer/face-colors ranges face_colors
 }
 source ~/.config/kak/cargo.kak
+source ~/.config/kak/harpoon.kak
 source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
 source ~/.config/kak/jest.kak
@@ -102,7 +113,7 @@ map global normal <esc> ';,'
 # highlight column 120
 add-highlighter global/hl-col-120 column 120 default,rgb:221823+d
 
-colorscheme one-dark
+colorscheme catppuccin_macchiato
 set-option global ui_options terminal_enable_mouse=false
 
 add-highlighter global/ number-lines -relative
@@ -194,13 +205,13 @@ map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 define-command ide -params 0..1 %{
     try %{ rename-session %arg{1} }
 
-
+    set-option local windowing_placement horizontal;
     rename-client main
     set-option global jumpclient main
-    tmux-split -h tools
+    new rename-client tools
     set-option global toolsclient tools
 
-    tmux-split -v docs
+    new rename-client docs
     set-option global docsclient docs
 
     nop %sh{
