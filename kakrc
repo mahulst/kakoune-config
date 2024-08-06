@@ -1,5 +1,4 @@
 eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
-
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
     case $kak_bufname in
@@ -41,10 +40,14 @@ define-command color-faces %{
 
     add-highlighter buffer/face-colors ranges face_colors
 }
+evaluate-commands %sh{kak-popup init}
 source ~/.config/kak/cargo.kak
+source ~/.config/kak/symbol.kak
 source ~/.config/kak/harpoon.kak
 source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
+source ~/.config/kak/web.kak
+source ~/.config/kak/git.kak
 source ~/.config/kak/jest.kak
 source ~/.config/kak/crosshairs.kak
 source ~/.config/kak/tab.kak
@@ -244,8 +247,6 @@ map -docstring "Run commands" global user <r> \
 map -docstring "Run jest" global user <j> \
     %{:enter-user-mode jest<ret>}
 
-map -docstring "Git" global user <g> \
-    %{:enter-user-mode git<ret>}
 
 
 define-command -override add-surrounding-pair -params 2 -docstring 'add surrounding pairs left and right to selection' %{
