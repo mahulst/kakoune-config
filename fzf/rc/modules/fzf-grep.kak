@@ -1,4 +1,4 @@
-# Author: Andrey Listopadov
+#sdf Author: Andrey Listopadov
 # Module for grepping file contents
 # https://github.com/andreyorst/fzf.kak
 
@@ -24,7 +24,7 @@ declare-option -docstring "Preview command for seeing file contents of the selec
 
 Default value:
     cat {1}" \
-str fzf_grep_preview_command 'cat'
+str fzf_grep_preview_command 'bat'
 
 
 define-command -hidden fzf-grep %{ evaluate-commands %sh{
@@ -42,7 +42,6 @@ define-command -hidden fzf-grep %{ evaluate-commands %sh{
     esac
 
     cmd="$cmd 2>/dev/null"
-
     title="fzf grep"
     message="grep through contents of all files recursively.
 <ret>: open search result in new buffer.
@@ -63,7 +62,7 @@ ${kak_opt_fzf_vertical_map:-ctrl-v}: open search result in vertical split"
 
     preview_cmd=""
     if [ "${kak_opt_fzf_grep_preview:-}" = "true" ]; then
-        preview_cmd="-preview -preview-cmd %{--preview '(${highlight_cmd} || cat {1}) 2>/dev/null' --preview-window=\${pos}:+{2}-/2}"
+        preview_cmd="-preview -preview-cmd %{--preview '(${highlight_cmd} || bat {1}) 2>/dev/null' --preview-window=\${pos}:+{2}-/2}"
     fi
 
     printf "%s\n" "info -title '${title}' '${message}${tmux_keybindings}'"

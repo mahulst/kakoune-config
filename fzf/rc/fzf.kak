@@ -50,7 +50,7 @@ These are default arguments for the tools above:
     rouge:     "rougify {}"
     clp:       "clp {}"
 ' \
-str fzf_highlight_command "highlight"
+str fzf_highlight_command "bat"
 
 declare-option -docstring "height of fzf tmux split in screen lines or percents.
 Default value: 25%%" \

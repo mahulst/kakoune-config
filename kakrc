@@ -42,8 +42,9 @@ define-command color-faces %{
 }
 evaluate-commands %sh{kak-popup init}
 source ~/.config/kak/cargo.kak
-source ~/.config/kak/symbol.kak
 source ~/.config/kak/harpoon.kak
+source ~/.config/kak/snippet.kak
+source ~/.config/kak/symbol.kak
 source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
 source ~/.config/kak/web.kak
@@ -246,8 +247,6 @@ map -docstring "Run commands" global user <r> \
 
 map -docstring "Run jest" global user <j> \
     %{:enter-user-mode jest<ret>}
-
-
 
 define-command -override add-surrounding-pair -params 2 -docstring 'add surrounding pairs left and right to selection' %{
   evaluate-commands -no-hooks -save-regs '"' %{
