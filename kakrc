@@ -42,6 +42,7 @@ define-command color-faces %{
 }
 evaluate-commands %sh{kak-popup init}
 source ~/.config/kak/cargo.kak
+source ~/.config/kak/yank.kak
 source ~/.config/kak/harpoon.kak
 source ~/.config/kak/snippet.kak
 source ~/.config/kak/symbol.kak
@@ -72,7 +73,8 @@ kaktree-enable
 map global user t ':kaktree--display<ret>'  -docstring 'display file tree'
 
 set-face global HiddenSelection 'white,bright-red+F'
-
+# add docstring for html tags
+map -docstring 'tag' global object t 'c<lt>\w[\w-]*\h*[^<gt>]*?(?<lt>!/)<gt>,<lt>/\w[\w-]*(?<lt>!/)<gt><ret>'
 declare-option range-specs hidden_selections_indicator_ranges
 declare-option str hidden_selections_above_and_below_indicator '●'
 declare-option str hidden_selections_above_indicator '▲'
@@ -144,6 +146,7 @@ map global user d ':buffer *debug* <ret>' -docstring 'open debug buffer'
 
 # lsp
 eval %sh{kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
+lsp-enable
 declare-option -hidden str modeline_progress ""
 define-command -hidden -params 6 -override lsp-handle-progress %{
     set global modeline_progress %sh{
@@ -182,8 +185,8 @@ map global object e '<a-semicolon>lsp-object Function Method<ret>' -docstring 'L
 map global object k '<a-semicolon>lsp-object Class Interface Struct<ret>' -docstring 'LSP class interface or struct'
 map global object d '<a-semicolon>lsp-diagnostic-object --include-warnings<ret>' -docstring 'LSP errors and warnings'
 map global object D '<a-semicolon>lsp-diagnostic-object<ret>' -docstring 'LSP errors'
-map global lsp k ':lsp-hover<ret>'                  -docstring 'hover'
-map global lsp K ':lsp-hover-buffer<ret>'           -docstring 'hover in a dedicated buffer'
+map global lsp K ':lsp-hover<ret>'                  -docstring 'hover'
+map global lsp k ':lsp-hover-buffer<ret>'           -docstring 'hover in a dedicated buffer'
 
 # window
 declare-user-mode window
@@ -206,12 +209,12 @@ map global window -docstring 'close ide' 'x'  ":close-ide <ret>"
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 
 # IDE command
-define-command ide -params 0..1 %{
-    try %{ rename-session %arg{1} }
+define-command ide  %{
 
     set-option local windowing_placement horizontal;
     rename-client main
     set-option global jumpclient main
+
     new rename-client tools
     set-option global toolsclient tools
 
