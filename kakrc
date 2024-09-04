@@ -165,7 +165,7 @@ hook global WinSetOption filetype=(rust|javascript|nix|typescript|json|tsx|css|h
 # define-command prettier -docstring 'run prettier over current file' %{
 #     nop %sh{ npx prettier --write %val{buffile}}
 # }
- 
+
 hook global WinSetOption filetype=(rust) %{
     #remove-hooks buffer cargo-hooks
     unmap global lsp f ":format <ret>"
@@ -209,7 +209,18 @@ map global window -docstring 'close ide' 'x'  ":close-ide <ret>"
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 
 # IDE command
+ 
+declare-option bool is_in_ide_mode 'false'
 define-command ide  %{
+    evaluate-commands %sh{
+        if [ "$kak_opt_is_in_ide_mode" = "false" ]; then
+            echo "echo 'Switching to ide'"
+       else 
+            echo "fail 'Already in ide mode'"
+        fi
+    }
+    set-option global is_in_ide_mode 'true'
+
 
     set-option local windowing_placement horizontal;
     rename-client main
