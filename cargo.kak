@@ -129,6 +129,7 @@ define-command edit-line-column -params 2 %{
 } -docstring "Like edit but understands file:line:col parameters"
 
 define-command cargo-open-file %{
+
     evaluate-commands -save-regs fl %{
 
         execute-keys -draft "g" "h" "/" %opt{cargo_file_pattern} <ret> "<a-;>" ";T:" '"fy' 'llT:"ly'

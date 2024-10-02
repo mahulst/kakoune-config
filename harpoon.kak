@@ -8,7 +8,37 @@ define-command peek -docstring %{ open a buffer with all your saved marks, it re
     printf "$meatsfile\n"
   }
   set buffer autoreload true
+  set-option buffer filetype harpoon
 }
+
+hook global WinSetOption filetype=harpoon %{
+    map -docstring "Jump to position" buffer normal <ret> %{: harpoon-jump<ret>}
+}
+hook global WinSetOption filetype=(?!harpoon).* %{
+    unmap buffer normal <ret> %{: harpoon-jump<ret>}
+}
+
+declare-option -docstring "regex describing file paths and line numbers" \
+    regex \
+    harpoon_file_pattern \
+    "/(\w|\.|/)+:\d+:\d+"
+
+define-command harpoon-jump %{
+
+    evaluate-commands -save-regs fl %{
+
+        execute-keys -draft "g" "h" "/" %opt{harpoon_file_pattern} <ret> "<a-;>" ";T:" '"fy' 'llT:"ly'
+
+	harpoon-line-column %reg{f} %reg{l}
+    }
+}
+define-command harpoon-line-column -params 2 %{
+    evaluate-commands -try-client %opt{jumpclient} %{
+        edit -existing "%arg{1}" "%arg{2}" 
+
+        try %{ focus }
+    }
+} -docstring "Like edit but understands file:line:col parameters"
 
 define-command stab -override -docstring %{ save a meat to marks } %{
   info -style modal "Stab!!!: "
@@ -130,5 +160,6 @@ define-command stabR -override -docstring %{ save a meat to marks } %{
 }
 
 map global user m ":stab<ret>" -docstring "mark location"
+map global user p ":peek<ret>" -docstring "view marks"
 map global user M ":lick<ret>" -docstring "go to location"
 

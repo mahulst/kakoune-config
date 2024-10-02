@@ -7,6 +7,26 @@ hook global BufSetOption kts_lang=(javascript|typescript) %{
     esac
   }
 }
+
+set-face global CursorLine "default,rgba:77777720"
+define-command ui-cursorline-enable -docstring 'enable cursor line' %{
+    add-highlighter window/cursorline line %val{cursor_line} CursorLine
+    hook window -group ui-cursorline RawKey .* %{
+        remove-highlighter window/cursorline
+        add-highlighter window/cursorline line %val{cursor_line} CursorLine
+    }
+    echo -markup "{Information}cursor line enabled"
+}
+
+hook global WinCreate .* %{
+    ui-cursorline-enable 
+}
+map -docstring "next" global prompt "<c-n>" "<tab>"
+map -docstring "prev" global prompt "<c-p>" "<s-tab>"
+map -docstring "select" global prompt "<c-y>" "<ret>"
+
+map -docstring "backspace" global prompt "<backspace>" "<left><del>"
+
 map global user k %{:enter-user-mode tree-sitter<ret>} -docstring "Tree Sitter"
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
@@ -51,7 +71,6 @@ source ~/.config/kak/clipboard.kak
 source ~/.config/kak/web.kak
 source ~/.config/kak/git.kak
 source ~/.config/kak/jest.kak
-source ~/.config/kak/crosshairs.kak
 source ~/.config/kak/tab.kak
 source ~/.config/kak/fzf/rc/fzf.kak
 source ~/.config/kak/fzf/rc/modules/fzf-cd.kak  
@@ -116,8 +135,6 @@ hook global PromptIdle '' update_hidden_selections_indicator_ranges
 # add-highlighter global/hidden_selections_indicator ref hidden_selections_indicator_ranges
 add-highlighter global/hidden_selections_indicator replace-ranges hidden_selections_indicator_ranges #remove duplicate cursors with esc 
 map global normal <esc> ';,'
-# highlight column 120
-add-highlighter global/hl-col-120 column 120 default,rgb:221823+d
 
 colorscheme catppuccin_macchiato
 set-option global ui_options terminal_enable_mouse=false
@@ -217,7 +234,7 @@ define-command ide  %{
             echo "echo 'Switching to ide'"
        else 
             echo "fail 'Already in ide mode'"
-        fi
+      fi
     }
     set-option global is_in_ide_mode 'true'
 
