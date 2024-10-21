@@ -62,9 +62,11 @@ define-command color-faces %{
 }
 evaluate-commands %sh{kak-popup init}
 source ~/.config/kak/cargo.kak
+source ~/.config/kak/ls.kak
 source ~/.config/kak/yank.kak
 source ~/.config/kak/harpoon.kak
 source ~/.config/kak/snippet.kak
+source ~/.config/kak/buffer.kak
 source ~/.config/kak/symbol.kak
 source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
@@ -90,7 +92,12 @@ hook global WinSetOption filetype=kaktree %{
 }
 kaktree-enable
 map global user t ':kaktree--display<ret>'  -docstring 'display file tree'
-
+# buffer mappings
+declare-user-mode chain
+map global user l ": recent-buffers-pick-link<ret>" -docstring "recent buffers"
+map global user L ": enter-user-mode -lock chain<ret>" -docstring "chain mode"
+map global chain p ": recent-buffers-loose-chain<ret>" -docstring "loose"
+map global chain n ": recent-buffers-pull-chain<ret>" -docstring "pull"
 set-face global HiddenSelection 'white,bright-red+F'
 # add docstring for html tags
 map -docstring 'tag' global object t 'c<lt>\w[\w-]*\h*[^<gt>]*?(?<lt>!/)<gt>,<lt>/\w[\w-]*(?<lt>!/)<gt><ret>'

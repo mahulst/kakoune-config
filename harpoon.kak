@@ -21,7 +21,7 @@ hook global WinSetOption filetype=(?!harpoon).* %{
 declare-option -docstring "regex describing file paths and line numbers" \
     regex \
     harpoon_file_pattern \
-    "/(\w|\.|/)+:\d+:\d+"
+    "/(\w|\.|-|/)+:\d+:\d+"
 
 define-command harpoon-jump %{
 

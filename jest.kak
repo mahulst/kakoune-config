@@ -1,7 +1,7 @@
 declare-option -docstring "regex describing file paths and line numbers" \
     regex \
     jest_file_pattern \
-    "(\w|\.|/)+:\d+:\d+"
+    "(\w|\.|/)+:\d*:\d*$"
 declare-option -docstring "name of the client in which utilities display information" \
     str toolsclient
 declare-option -docstring "name of the client in which all source code jumps will be executed" \
@@ -86,24 +86,6 @@ declare-option -docstring "name of the client in which all source code jumps wil
     str jumpclient
 
 
-define-command -hidden jest-jump %{
-    evaluate-commands %{
-        # We may be in the middle of an error.
-        # To find it, we search for the next error
-        # (which definitely moves us past the end of this error)
-        # and then search backward
-        # execute-keys "/" %opt{cargo_error_pattern} <ret>
-        # execute-keys <a-/> %opt{cargo_error_pattern} <ret><a-:> "<a-;>"
-
-        # # We found a Cargo error, let's open it.
-        # set-option buffer cargo_current_error_line "%val{cursor_line}"
-        # cargo-open-error \
-        #     "%opt{cargo_workspace_root}%reg{2}" \
-        #     "%reg{3}" \
-        #     "%sh{ echo ${kak_main_reg_4:-1} }" \
-        #     "%reg{1}"
-    }
-}
 
 
 

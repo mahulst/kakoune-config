@@ -115,5 +115,20 @@ define-command -hidden smarttab-set %{ evaluate-commands %sh{
         printf "%s\n" "set-option buffer oldindentwidth $kak_opt_indentwidth"
     fi
 }}
-
 §
+define-command -override -hidden update-tab-width -docstring "infers the tab-width from the buffer's contents" %{
+  try %{
+    evaluate-commands -draft %{
+      # find first run of spaces in a line
+      execute-keys 'gk/^ +<ret>'
+
+      set-option buffer tabstop %val{selection_length}
+      set-option buffer indentwidth %val{selection_length}
+    }
+  } catch %{
+    echo -debug "failed to infer tab width for buffer=%val{buffer}"
+  }
+}
+
+hook global BufOpenFile .* update-tab-width
+hook global BufWritePost .* update-tab-width
