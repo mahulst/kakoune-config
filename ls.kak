@@ -80,6 +80,7 @@ define-command fifo -params 1.. %{
 EOF
   }
 }
+map global user L ": ls<ret>" -docstring "Explore directory"
 
 complete-command fifo shell
 

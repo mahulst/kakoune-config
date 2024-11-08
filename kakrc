@@ -93,11 +93,7 @@ hook global WinSetOption filetype=kaktree %{
 kaktree-enable
 map global user t ':kaktree--display<ret>'  -docstring 'display file tree'
 # buffer mappings
-declare-user-mode chain
 map global user l ": recent-buffers-pick-link<ret>" -docstring "recent buffers"
-map global user L ": enter-user-mode -lock chain<ret>" -docstring "chain mode"
-map global chain p ": recent-buffers-loose-chain<ret>" -docstring "loose"
-map global chain n ": recent-buffers-pull-chain<ret>" -docstring "pull"
 set-face global HiddenSelection 'white,bright-red+F'
 # add docstring for html tags
 map -docstring 'tag' global object t 'c<lt>\w[\w-]*\h*[^<gt>]*?(?<lt>!/)<gt>,<lt>/\w[\w-]*(?<lt>!/)<gt><ret>'
