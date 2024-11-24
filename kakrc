@@ -1,4 +1,26 @@
 eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
+define-command run-in-fifo -params 2 %{
+    evaluate-commands %sh{
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-cargo.XXXXXXXX)/fifo
+        mkfifo ${output}
+        ( eval $1 > ${output} 2>&1 ) > /dev/null 2>&1 < /dev/null &
+
+        printf %s\\n "
+            evaluate-commands -try-client '$kak_opt_toolsclient' %{
+               write-all
+               edit! -fifo ${output} -scroll *compilation*
+               set-option buffer filetype $2
+               hook -once buffer BufCloseFifo .* %{
+                   nop %sh{ rm -r $(dirname ${output}) }
+                   evaluate-commands -try-client '$kak_client' %{
+                       echo -- Completed $*
+                   }
+               }
+           }
+        "
+    }
+}
+
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
     case $kak_bufname in

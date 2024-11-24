@@ -70,6 +70,8 @@ hook global WinSetOption filetype=cargo %{
     #hook buffer -group cargo-hooks NormalKey <ret> cargo-jump
     map -docstring "Jump to current error" buffer normal <ret> %{: cargo-jump<ret>}
     map -docstring "Jump to file on current line" buffer user "f" %{: cargo-open-file<ret>}
+    map -docstring "Go to next error" buffer normal "n" %{: cargo-next-error<ret>}
+    map -docstring "Go to previous error" buffer normal "p" %{: cargo-previous-error<ret>}
 }
 
 hook -group cargo-highlight global WinSetOption filetype=(?!cargo).* %{
@@ -105,7 +107,6 @@ define-command -hidden cargo-jump %{
         execute-keys <a-/> %opt{cargo_error_pattern} <ret><a-:> "<a-;>"
 
         # We found a Cargo error, let's open it.
-        set-option buffer cargo_current_error_line "%val{cursor_line}"
         cargo-open-error \
             "%opt{cargo_workspace_root}%reg{2}" \
             "%reg{3}" \
@@ -143,14 +144,7 @@ define-command cargo-next-error -docstring 'Jump to the next cargo error' %{
         evaluate-commands -try-client %opt{jumpclient} %{
             buffer '*cargo*'
             execute-keys "%opt{cargo_current_error_line}gl" "/%opt{cargo_error_pattern}<ret>"
-            cargo-jump
-        }
-        # Make sure the selected error is visible
-        try %{
-            evaluate-commands -client %opt{toolsclient} %{
-                buffer '*cargo*'
-                execute-keys %opt{cargo_current_error_line}gvv
-            }
+            set-option buffer cargo_current_error_line "%val{cursor_line}"
         }
     } catch %{
     	fail "No Cargo errors found"
@@ -162,14 +156,7 @@ define-command cargo-previous-error -docstring 'Jump to the previous cargo error
         evaluate-commands -try-client %opt{jumpclient} %{
             buffer '*cargo*'
             execute-keys "%opt{cargo_current_error_line}gl" "<a-/>%opt{cargo_error_pattern}<ret>"
-            cargo-jump
-        }
-        # Make sure the selected error is visible
-        try %{
-            evaluate-commands -client %opt{toolsclient} %{
-                buffer '*cargo*'
-                execute-keys %opt{cargo_current_error_line}gvv
-            }
+            set-option buffer cargo_current_error_line "%val{cursor_line}"
         }
     } catch %{
     	fail "No Cargo errors found"
