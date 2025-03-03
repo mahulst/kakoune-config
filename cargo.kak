@@ -1,6 +1,3 @@
-declare-option -docstring "shell command run to build the project" \
-    str cargocmd cargo
-
 declare-option -docstring "regex describing cargo error references" \
     regex \
     cargo_error_pattern \
@@ -14,45 +11,8 @@ declare-option -docstring "name of the client in which utilities display informa
     str toolsclient
 declare-option -docstring "name of the client in which all source code jumps will be executed" \
     str jumpclient
-declare-option -hidden int cargo_current_error_line
+
 declare-option -hidden str cargo_workspace_root
-
-define-command -params .. \
-    -docstring %{cargo [<arguments>]: cargo utility wrapper
-All the optional arguments are forwarded to the cargo utility} \
-    cargo %{
-    evaluate-commands %sh{
-        workspace_root=$(
-            cargo metadata --format-version=1 |
-            grep -o '"workspace_root":"[^"]*' |
-            grep -o '[^"]*$'
-        )
-        quoted_workspace_root="'""$(
-            printf %s "$workspace_root" |
-            sed -e "s/'/''/g"
-        )""/'"
-
-        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-cargo.XXXXXXXX)/fifo
-        mkfifo ${output}
-        ( eval ${kak_opt_cargocmd} "$@" > ${output} 2>&1 ) > /dev/null 2>&1 < /dev/null &
-
-        printf %s\\n "
-            evaluate-commands -try-client '$kak_opt_toolsclient' %{
-               write-all
-               edit! -fifo ${output} -scroll *cargo*
-               set-option buffer filetype cargo
-               set-option buffer cargo_current_error_line 1
-               set-option buffer cargo_workspace_root $quoted_workspace_root
-               hook -once buffer BufCloseFifo .* %{
-                   nop %sh{ rm -r $(dirname ${output}) }
-                   evaluate-commands -try-client '$kak_client' %{
-                       echo -- Completed cargo $*
-                   }
-               }
-           }
-        "
-    }
-}
 
 add-highlighter shared/cargo group
 add-highlighter shared/cargo/ regex "^(error(?:\[[A-Z0-9]+\])?:)" 1:red
@@ -60,7 +20,6 @@ add-highlighter shared/cargo/ regex "^(warning(?:\[[A-Z0-9]+\])?:)" 1:yellow
 add-highlighter shared/cargo/ regex "^(note(?:\[[A-Z0-9]+\])?:)" 1:green
 add-highlighter shared/cargo/ regex "^ +\|[ |]+(-+[^\n]*)$" 1:cyan
 add-highlighter shared/cargo/ regex "^ +\|[ |]+(\^+[^\n]*)$" 1:red
-add-highlighter shared/cargo/ line '%opt{cargo_current_error_line}' default+b
 
 hook -group cargo-highlight global WinSetOption filetype=cargo %{
     add-highlighter window/cargo ref cargo
@@ -84,6 +43,8 @@ hook global WinSetOption filetype=(?!cargo).* %{
     #remove-hooks buffer cargo-hooks
     unmap buffer normal <ret> %{: cargo-jump<ret>}
     unmap buffer user f %{: cargo-open-file<ret>}
+    unmap buffer normal "n" %{: cargo-next-error<ret>}
+    unmap buffer normal "p" %{: cargo-previous-error<ret>}
 }
 
 declare-option -docstring "name of the client in which all source code jumps will be executed" \
@@ -115,12 +76,6 @@ define-command -hidden cargo-jump %{
     }
 }
 
-define-command -override search-doc -params 1 %{
-  prompt -menu search: -shell-script-candidates "grep -e ""%arg{1}"" -R %val{runtime}/doc" %{
-    info "thing is %val{text}"
-  }
-}
-
 define-command edit-line-column -params 2 %{
     evaluate-commands -try-client %opt{jumpclient} %{
         edit -existing "%arg{1}" "%arg{2}" 
@@ -142,61 +97,46 @@ define-command cargo-open-file %{
 define-command cargo-next-error -docstring 'Jump to the next cargo error' %{
     try %{
         evaluate-commands -try-client %opt{jumpclient} %{
-            buffer '*cargo*'
-            execute-keys "%opt{cargo_current_error_line}gl" "/%opt{cargo_error_pattern}<ret>"
-            set-option buffer cargo_current_error_line "%val{cursor_line}"
+            set-register "b" %reg{/}
+            set-register "/" %opt{cargo_error_pattern}
+            execute-keys "n"
         }
     } catch %{
     	fail "No Cargo errors found"
     }
+    set-register "/" %reg{b}
 }
 
 define-command cargo-previous-error -docstring 'Jump to the previous cargo error' %{
     try %{
         evaluate-commands -try-client %opt{jumpclient} %{
-            buffer '*cargo*'
-            execute-keys "%opt{cargo_current_error_line}gl" "<a-/>%opt{cargo_error_pattern}<ret>"
-            set-option buffer cargo_current_error_line "%val{cursor_line}"
+            set-register "b" %reg{/}
+            set-register "/" %opt{cargo_error_pattern}
+            execute-keys "<a-n>"
         }
     } catch %{
     	fail "No Cargo errors found"
     }
+    set-register "/" %reg{b}
 }
 
 define-command cargo-run-example -docstring 'Run current buffer as example' %{
-    evaluate-commands %{
-        write-all
-        set-register e %sh{
-            filename=$(basename "$kak_buffile")
-            echo "${filename%.*}"
-        } 
-    }
     evaluate-commands %sh{
         filename=$(basename "$kak_buffile")
-        echo "cargo run --example ${filename%.*}"
+        echo "run-in-fifo 'cargo run --example ${filename%.*}' cargo"
     }
 }
 
 define-command cargo-run-example-release -docstring 'Run current buffer as example in release' %{
-    evaluate-commands %{
-        write-all
-        set-register e %sh{
-            filename=$(basename "$kak_buffile")
-            echo "${filename%.*}"
-        } 
-    }
     evaluate-commands %sh{
         filename=$(basename "$kak_buffile")
-        echo "cargo run --example ${filename%.*} --release"
+        echo "run-in-fifo 'cargo run --example ${filename%.*} --release' cargo"
     }
 }
 
 define-command cargo-run-run -docstring 'Run as "cargo run"' %{
-    evaluate-commands %{
-        write-all
-    }
     evaluate-commands %sh{
-        echo "cargo run"
+        echo "run-in-fifo 'cargo run' cargo"
     }
 }
 define-command cargo-run-run-release -docstring 'Run as "cargo run --release"' %{
@@ -204,48 +144,24 @@ define-command cargo-run-run-release -docstring 'Run as "cargo run --release"' %
         write-all
     }
     evaluate-commands %sh{
-        echo "cargo run --release"
+        echo "run-in-fifo 'cargo run --release' cargo"
     }
 }
 
-define-command cargo-run-last-example -docstring 'Run last ran example' %{
-    evaluate-commands %{
-        write-all
-    }
-    evaluate-commands %{
-        cargo-run-name-example %reg{e}
-    }
-}
-
-define-command cargo-run-name-example -params 1 -docstring 'Run last ran example' %{
-    evaluate-commands %{
-        write-all
-    }
-    evaluate-commands %sh{
-        echo "cargo run --example %arg{1} --release"
-    }
-}
 declare-user-mode cargo
-# TODO make all release commands be capital letters of normal command
-# TODO make r r remember al last commands
-map -docstring "Run last example" \
-	global cargo r %{: cargo-run-last-example <ret>}
+
 map -docstring "Run" \
-	global cargo f %{: cargo-run-run <ret>}
+	global cargo r %{: cargo-run-run <ret>}
 map -docstring "Run --release" \
-	global cargo w %{: cargo-run-run-release <ret>}
+	global cargo R %{: cargo-run-run-release <ret>}
 map -docstring "Run tests" \
-	global cargo t %{: cargo test<ret>}
+	global cargo t %{: run-in-fifo 'cargo test' cargo<ret>}
 map -docstring "Run example" \
 	global cargo e %{: cargo-run-example <ret>}
 map -docstring "Run example --release" \
-	global cargo l %{: cargo-run-example-release<ret>}
+	global cargo E %{: cargo-run-example-release<ret>}
 map -docstring "Check syntax" \
-	global cargo c %{: cargo check --all-targets<ret>}
+	global cargo c %{: run-in-fifo 'cargo check --all-targets'  cargo<ret>}
 map -docstring "Build documentation" \
-	global cargo d %{: cargo doc<ret>}
-map -docstring "Next error" \
-	global cargo n %{: cargo-next-error<ret>}
-map -docstring "Previous error" \
-	global cargo p %{: cargo-previous-error<ret>}
+	global cargo d %{: run-in-fifo 'cargo doc' cargo<ret>}
 

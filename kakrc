@@ -1,26 +1,16 @@
 eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
-define-command run-in-fifo -params 2 %{
-    evaluate-commands %sh{
-        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-cargo.XXXXXXXX)/fifo
-        mkfifo ${output}
-        ( eval $1 > ${output} 2>&1 ) > /dev/null 2>&1 < /dev/null &
 
-        printf %s\\n "
-            evaluate-commands -try-client '$kak_opt_toolsclient' %{
-               write-all
-               edit! -fifo ${output} -scroll *compilation*
-               set-option buffer filetype $2
-               hook -once buffer BufCloseFifo .* %{
-                   nop %sh{ rm -r $(dirname ${output}) }
-                   evaluate-commands -try-client '$kak_client' %{
-                       echo -- Completed $*
-                   }
-               }
-           }
-        "
+hook global WinSetOption filetype %{
+    echo -debug "Filetype changed to: %val{filetype}"
+}
+map global user d ':buffer *debug* <ret>' -docstring 'open debug buffer'
+
+hook -group lsp-language-id global BufCreate .*[.]tsx %{
+    hook -group lsp-language-id buffer BufSetOption filetype=typescript %{
+        echo -debug "poop"
+        set-option buffer lsp_language_id typescriptreact
     }
 }
-
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
     case $kak_bufname in
@@ -49,7 +39,6 @@ map -docstring "select" global prompt "<c-y>" "<ret>"
 
 map -docstring "backspace" global prompt "<backspace>" "<left><del>"
 
-map global user k %{:enter-user-mode tree-sitter<ret>} -docstring "Tree Sitter"
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
     case $kak_bufname in
@@ -83,8 +72,12 @@ define-command color-faces %{
     add-highlighter buffer/face-colors ranges face_colors
 }
 evaluate-commands %sh{kak-popup init}
+source ~/.config/kak/fifo.kak
+source ~/.config/kak/switch-case.kak
+source ~/.config/kak/servers.kak
 source ~/.config/kak/cargo.kak
 source ~/.config/kak/ls.kak
+source ~/.config/kak/ts.kak
 source ~/.config/kak/yank.kak
 source ~/.config/kak/harpoon.kak
 source ~/.config/kak/snippet.kak
@@ -95,6 +88,8 @@ source ~/.config/kak/clipboard.kak
 source ~/.config/kak/web.kak
 source ~/.config/kak/git.kak
 source ~/.config/kak/jest.kak
+source ~/.config/kak/c.kak
+source ~/.config/kak/godot.kak
 source ~/.config/kak/tab.kak
 source ~/.config/kak/fzf/rc/fzf.kak
 source ~/.config/kak/fzf/rc/modules/fzf-cd.kak  
@@ -113,7 +108,7 @@ hook global WinSetOption filetype=kaktree %{
     remove-highlighter buffer/show-whitespaces
 }
 kaktree-enable
-map global user t ':kaktree--display<ret>'  -docstring 'display file tree'
+map global user T ':kaktree--display<ret>'  -docstring 'display file tree'
 # buffer mappings
 map global user l ": recent-buffers-pick-link<ret>" -docstring "recent buffers"
 set-face global HiddenSelection 'white,bright-red+F'
@@ -184,10 +179,10 @@ map -docstring "Find " global user f ':fzf-mode<ret>'
 map -docstring "Write all" global user s ':write-all<ret>' 
 map global user '/' ':comment-line<ret>' -docstring 'comment line'
 
-map global user d ':buffer *debug* <ret>' -docstring 'open debug buffer'
 
 # lsp
 eval %sh{kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
+# set global lsp_debug true
 lsp-enable
 declare-option -hidden str modeline_progress ""
 define-command -hidden -params 6 -override lsp-handle-progress %{
@@ -359,9 +354,15 @@ map global surround-add '“' ':add-surrounding-pair “ ”<ret>'         -docs
 map global surround-add '”' ':add-surrounding-pair “ ”<ret>'         -docstring 'surround selections with French chevrons'
 map global surround-add ` ':add-surrounding-pair ` `<ret>'           -docstring 'surround selections with ticks'
 
+define-command text-object-indented-paragraph %{
+  execute-keys -draft -save-regs '' '<a-i>pZ'
+  execute-keys '<a-i>i<a-z>i'
+}
+
 unmap global normal m
 declare-user-mode match-mode
 map global match-mode i '<a-i>' -docstring "Match inside"
+map global match-mode b ':text-object-indented-paragraph <ret>' -docstring "Match inside indented block"
 map global match-mode a '<a-a>' -docstring "Match around"
 map global match-mode m 'M' -docstring "Match matching symbol"
 map global match-mode s ':enter-user-mode surround-add<ret>'  -docstring 'add surrounding pairs'

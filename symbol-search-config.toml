@@ -1,16 +1,3 @@
-# ────────────── commands ──────────────
-define-command symbol-search -docstring "search for symbols in files in the current working directory" %{
-  popup \
-    --title 'symbol search' --on-err 'warn' \
-    --kak-script %{evaluate-commands "edit %opt{popup_output}"} -- \
-    kak-symbol-search --config %opt{symbol_search_config} --cache-dir "/tmp/kak-symbol-search/%val{session}"
-}
-
-# ────────────── mappings ──────────────
-map global normal <c-r> ': symbol-search<ret>'
-
-# ────────────── configuration ──────────────
-declare-option str symbol_search_config %{
 [fzf_settings]
 preview_window = "70%"
 
@@ -19,6 +6,7 @@ enum     = "(enum_item name: (type_identifier) @name)"
 struct   = "(struct_item name: (type_identifier) @name)"
 method   = "(declaration_list (function_item name: (identifier) @name))"
 function = "(function_item name: (identifier) @name)"
+const    = "entity.name.constant.rust"
 impl     = "(impl_item type: (type_identifier) @name)"
 macro    = "(macro_definition name: (identifier) @name)"
 module   = "(mod_item name: (identifier) @name)"
@@ -30,15 +18,26 @@ function = "(function_definition name: (identifier) @name)"
 class = "(class_definition name: (identifier) @name)"
 
 [typescript]
-class = "(class_declaration name: (type_identifier) @name)"
+# class = "(class_declaration name: (type_identifier) @name)"
 method = "(method_signature name: (property_identifier) @name)"
 function = [
   "(function_declaration name: (identifier))",
   "(program (lexical_declaration (variable_declarator name: (identifier) @name value: (arrow_function))))",
 ]
-constant = "(variable_declarator name: (identifier) @name )"
 
-
+[c]
+include = [
+  "entity.name.function.c"
+  "entity.name.macro.c"
+  "entity.name.struct.c"
+  "entity.name.enum.c"
+  "entity.name.module.c"
+  "entity.name.type.c"
+  "entity.name.trait.c"
+  "entity.name.impl.c"
+  "entity.name.constant.c"
+  "entity.name.constant.preprocessor.c"
+]
 
 [haskell]
 type = [
@@ -47,4 +46,3 @@ type = [
 ]
 function = "(haskell declarations: (declarations (signature name: (variable) @function.name)))"
 
-}

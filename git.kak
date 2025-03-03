@@ -38,7 +38,9 @@ define-command git-blame-current-line %{
   info -markup -style above -anchor "%val{cursor_line}.%val{cursor_column}" -- %sh{git blame -L$kak_cursor_line,$kak_cursor_line $kak_bufname | sed -rn 's/^([^ ]+) \((.*) ([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]).*\).*$/{git_current_line_hash}\1 {git_current_line_author}\2 {git_current_line_date}\3/p'}
 }
 
+map global git l ':git log<ret>' -docstring 'log'
 map global git b ':git blame<ret>' -docstring 'blame'
+map global git B ':git blame-jump<ret>' -docstring 'blame jump'
 map global git s ':git status<ret>' -docstring 'status'
 map global git d ':git diff<ret>' -docstring 'diff'
 map global git c ':git-blame-current-line<ret>' -docstring 'blame current line'
