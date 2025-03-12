@@ -241,7 +241,9 @@ map global window -docstring 'zoom' z %{:nop %sh{TMUX="${kak_client_env_TMUX}" t
 map global window -docstring 'split horizontal' <minus> ":tmux-split -v new<ret>"
 map global window -docstring 'split vertical' '|'  ":tmux-split -h new<ret>"
 map global window -docstring 'start ide' 'i'  ":ide <ret>"
-map global window -docstring 'close ide' 'x'  ":close-ide <ret>"
+map global user -docstring 'close all' 'Q'  ":close-ide <ret>"
+map global window -docstring 'close buffer' 'x'  ":delete-buffer <ret>"
+map global window -docstring 'close buffer' 'X'  ":delete-buffer! <ret>"
 
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 

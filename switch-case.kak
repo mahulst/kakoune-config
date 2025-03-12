@@ -3,7 +3,6 @@ define-command switch_case -params 1 %{
         execute-keys "| ccase -t %arg{1}<ret>"
     }
 }
-
 declare-user-mode case
 
 map global user -docstring 'switch case' k ':enter-user-mode case<ret>'
