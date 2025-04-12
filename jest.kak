@@ -20,7 +20,6 @@ add-highlighter shared/jest/ regex "(^FAIL) " 1:red
 add-highlighter shared/jest/ regex "(^PASS) " 1:green
 
 hook -group jest-highlight global WinSetOption filetype=jest %{
-    echo -debug "highlighted!"
     add-highlighter window/jest ref jest
 }
 

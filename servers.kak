@@ -103,6 +103,16 @@ hook -group lsp-filetype-elm global BufSetOption filetype=elm %{
         elmTestPath = "elm-test"
     }
 }
+hook -group lsp-filetype-odin global BufSetOption filetype=odin %{
+    set-option buffer lsp_servers %{
+        [ols]
+        root_globs = ["ols.json", "main.odin"]
+        # comment-token = "//"
+        # block-comment-tokens = { start = "/*", end = "*/" }
+        # indent = { tab-width = 4, unit = "\t" }
+        # formatter = { command = "odinfmt", args = [ "-stdin" ] }
+    }
+}
 
 hook -group lsp-filetype-gdscript global BufSetOption filetype=gdscript %{
     set-option buffer lsp_servers %{

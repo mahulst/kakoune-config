@@ -17,7 +17,7 @@ define-command run-compiled-file-c -docstring 'Run compiled c file' %{
 define-command compile-and-run-c -docstring 'Compile and run C file' %{
     evaluate-commands %sh{
         filename=$(basename "$kak_buffile")
-        echo "run-in-fifo 'gcc ${kak_buffile} -o ${filename%.*} && ./${filename%.*}' gcc"
+        echo "run-in-fifo ' gcc -L. -lsim86 ${kak_buffile} -o ${filename%.*} && ./${filename%.*}' gcc"
     }
 }
 declare-user-mode cpp

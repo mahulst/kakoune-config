@@ -10,6 +10,7 @@
 # │ GitHub.com/andreyorst/smarttab.kak │
 # ╰────────────────────────────────────╯
 
+set-option global tabstop 4
 define-command -docstring "noexpandtab: use tab character to indent and align" \
 noexpandtab %{ require-module smarttab; noexpandtab-impl }
 

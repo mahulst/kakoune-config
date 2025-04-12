@@ -1,4 +1,4 @@
-eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
+# eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
 
 hook global WinSetOption filetype %{
     echo -debug "Filetype changed to: %val{filetype}"
@@ -78,6 +78,7 @@ source ~/.config/kak/servers.kak
 source ~/.config/kak/cargo.kak
 source ~/.config/kak/ls.kak
 source ~/.config/kak/ts.kak
+source ~/.config/kak/odin.kak
 source ~/.config/kak/yank.kak
 source ~/.config/kak/harpoon.kak
 source ~/.config/kak/snippet.kak
@@ -247,6 +248,23 @@ map global window -docstring 'close buffer' 'X'  ":delete-buffer! <ret>"
 
 map global user -docstring 'window mode' w ':enter-user-mode window<ret>'
 
+map global window  -docstring 'zoom docs' d ":zoom docs<ret>"
+map global window  -docstring 'zoom tools' t ":zoom tools<ret>"
+map global window  -docstring 'zoom code' c ":zoom main<ret>"
+
+map global window  -docstring 'focus docs' D ":focus docs<ret>"
+map global window  -docstring 'focus tools' T ":focus tools<ret>"
+map global window  -docstring 'focus code' C ":focus main<ret>"
+
+define-command zoom -params 1 %{
+ evaluate-commands  %{
+     focus %arg{1}
+ }
+    evaluate-commands  %sh{
+         TMUX="${kak_client_env_TMUX}" tmux resize-pane -Z
+    }
+    
+}
 # IDE command
  
 declare-option bool is_in_ide_mode 'false'
@@ -384,3 +402,5 @@ map -docstring "JSON" global scratch j %{
       echo ":set buffer filetype json <ret>"
     }
 }
+
+

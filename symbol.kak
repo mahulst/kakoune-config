@@ -25,6 +25,14 @@ module   = "(mod_item name: (identifier) @name)"
 trait    = "(trait_item name: (type_identifier) @name)"
 type     = "(type_item name: (type_identifier) @name)"
 
+[odin]
+enum     = "(enum_type name: (identifier) @name)"
+struct   = "(struct_type name: (identifier) @name)"
+method   = "(method_declaration name: (identifier) @name)"
+function = "(function_declaration name: (identifier) @name)"
+module   = "(package_declaration name: (identifier) @name)"
+type     = "(type_declaration name: (identifier) @name)"
+
 [python]
 function = "(function_definition name: (identifier) @name)"
 class = "(class_definition name: (identifier) @name)"

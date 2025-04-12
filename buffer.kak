@@ -2,6 +2,7 @@
 declare-option str-list recent_buffers
 declare-option str-list recent_buffers_freezed
 declare-option str recent_buffers_head
+declare-user-mode buffer-mode
 
 define-command _debuggy_buggy -hidden %{
   info %sh{
