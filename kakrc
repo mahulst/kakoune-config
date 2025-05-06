@@ -1,5 +1,4 @@
 # eval %sh{ kak-tree-sitter -dks --init "$kak_session" --with-highlighting --with-text-objects -vvvvv }
-
 hook global WinSetOption filetype %{
     echo -debug "Filetype changed to: %val{filetype}"
 }
@@ -381,7 +380,23 @@ define-command text-object-indented-paragraph %{
 
 unmap global normal m
 declare-user-mode match-mode
+declare-user-mode undo-tree
+define-command try-undo-backward %{
+    try %{
+        execute-keys '<c-j>'
+    }
+}
+define-command try-undo-forward %{
+    try %{
+        execute-keys '<c-k>'
+    }
+}
+
 map global match-mode i '<a-i>' -docstring "Match inside"
+map global undo-tree j ':try-undo-backward <ret>'
+map global undo-tree k ':try-undo-forward <ret>'
+
+map global user u ':enter-user-mode -lock undo-tree<ret>'  -docstring 'Undo Tree'
 map global match-mode b ':text-object-indented-paragraph <ret>' -docstring "Match inside indented block"
 map global match-mode a '<a-a>' -docstring "Match around"
 map global match-mode m 'M' -docstring "Match matching symbol"
