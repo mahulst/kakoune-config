@@ -113,6 +113,16 @@ hook -group lsp-filetype-odin global BufSetOption filetype=odin %{
         # formatter = { command = "odinfmt", args = [ "-stdin" ] }
     }
 }
+hook -group lsp-filetype-odin global BufSetOption filetype=jai %{
+    set-option buffer lsp_servers %{
+        [jails]
+        root_globs = ["jails.json"]
+        # comment-token = "//"
+        # block-comment-tokens = { start = "/*", end = "*/" }
+        # indent = { tab-width = 4, unit = "\t" }
+        # formatter = { command = "odinfmt", args = [ "-stdin" ] }
+    }
+}
 
 hook -group lsp-filetype-gdscript global BufSetOption filetype=gdscript %{
     set-option buffer lsp_servers %{

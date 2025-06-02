@@ -6,7 +6,6 @@ map global user d ':buffer *debug* <ret>' -docstring 'open debug buffer'
 
 hook -group lsp-language-id global BufCreate .*[.]tsx %{
     hook -group lsp-language-id buffer BufSetOption filetype=typescript %{
-        echo -debug "poop"
         set-option buffer lsp_language_id typescriptreact
     }
 }
@@ -98,6 +97,7 @@ source ~/.config/kak/fzf/rc/modules/fzf-buffer.kak
 source ~/.config/kak/fzf/rc/modules/fzf-grep.kak  
 source ~/.config/kak/fzf/rc/modules/fzf-project.kak  
 source ~/.config/kak/fzf/rc/modules/fzf-search.kak
+source ~/.config/kak/jai.kak
 hook global BufOpenFile .* expandtab
 hook global BufNewFile  .* expandtab
 hook global WinCreate .* %{ kakboard-enable }
@@ -315,7 +315,7 @@ define-command close-ide %{
 map -docstring "Run commands" global user <r> \
     %{:enter-user-mode cargo<ret>}
 
-map -docstring "Run jest" global user <j> \
+map -docstring "Run jest" global user <J> \
     %{:enter-user-mode jest<ret>}
 
 define-command -override add-surrounding-pair -params 2 -docstring 'add surrounding pairs left and right to selection' %{
