@@ -4,7 +4,7 @@ declare-option str last_command_type ''
 declare-option -docstring "regex describing format in which fifos are saved" \
     regex \
     fifo_list_item \
-    "^(.*) \^\|\^ (.*)\n"
+    "^([^\n]*) \^\|\^ ([a-z-]*)$"
 
 map -docstring "Rerun last fifo" \
 	global user R %{: run-last-fifo <ret>}

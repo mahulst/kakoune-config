@@ -81,7 +81,7 @@ source ~/.config/kak/yank.kak
 source ~/.config/kak/harpoon.kak
 source ~/.config/kak/snippet.kak
 source ~/.config/kak/buffer.kak
-source ~/.config/kak/symbol.kak
+# source ~/.config/kak/symbol.kak
 source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
 source ~/.config/kak/web.kak
