@@ -18,7 +18,7 @@ Default arguments:
 " \
 str fzf_git_command "git"
 
-define-command -hidden fzf-git %{ evaluate-commands %sh{
+define-command fzf-git %{ evaluate-commands %sh{
 
     case $kak_opt_fzf_git_command in
         (git)  cmd='git ls-tree --full-tree --name-only -r HEAD' ;;

@@ -419,3 +419,6 @@ map -docstring "JSON" global scratch j %{
 }
 
 
+source ~/.config/kak/fzf/rc/modules/VCS/fzf-git.kak
+source ~/.config/kak/fzf/rc/modules/fzf-vcs.kak
+source ~/.config/kak/fzf/rc/modules/fzf-symbol.kak

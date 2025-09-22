@@ -10,13 +10,10 @@ hook global ModuleLoaded fzf %§
 provide-module fzf-vcs %§
 
 require-module fzf-git
-require-module fzf-svn
-require-module fzf-hg
-require-module fzf-bzr
 
 declare-user-mode fzf-vcs
 
-define-command -hidden -docstring 'Wrapper command for fzf vcs to automatically decect
+define-command -docstring 'Wrapper command for fzf vcs to automatically decect
 used version control system.
 
 Supported vcs:
