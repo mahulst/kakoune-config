@@ -242,6 +242,42 @@ hook -group lsp-filetype-html global BufSetOption filetype=html %{
     }
 }
 
+# Vue (.vue) buffers
+hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
+    set-option buffer lsp_servers %{
+        # vuels = { command = "vue-language-server", args = ["--stdio"], config = { typescript = { tsdk = "node_modules/typescript/lib/" } } }
+        [vue-language-server]
+        filetypes = ["vue"]
+
+        command = "vue-language-server"
+        args = ["--stdio"]
+        root_globs = ["package.json", "tsconfig.json", ".git"]
+        # This tells kak-lsp to send the 'init' sub-table as the root of initializationOptions
+        settings_section = "init"
+        [vue-language-server.settings.init]
+        typescript = { tsdk = "/Users/mahulst/projects/vue/vuets/node_modules/typescript/lib/" }
+        vue = { hybridMode = false }
+# quotePreference = "double"
+        # typescript.format.semicolons = "insert"
+
+        # [vue-language-server]
+        # command = "npx"
+        # args = ["--no-install", "vue-language-server", "--stdio"]
+        # filetypes = ["vue"]
+        # root_globs = [
+        #     "package.json",
+        #     "tsconfig.json",
+        #     "jsconfig.json",
+        #     "pnpm-lock.yaml",
+        #     "yarn.lock",
+        #     ".git",
+        #     ".hg",
+        # ]
+        # [vue-language-server.initialization_options]
+        # typescript = { tsdk = "/Users/mahulst/projects/vue/vuets/node_modules/typescript/lib/" }
+    }
+}
+
 hook -group lsp-filetype-javascript global BufSetOption filetype=(?:javascript|typescript) %{
     set-option buffer lsp_servers %{
         [typescript-language-server]

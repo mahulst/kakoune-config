@@ -9,6 +9,12 @@ hook -group lsp-language-id global BufCreate .*[.]tsx %{
         set-option buffer lsp_language_id typescriptreact
     }
 }
+
+hook global BufOpenFile .*\.vue$ %{
+    set-option buffer filetype vue
+    set-option buffer lsp_language_id vue
+}
+
 hook global BufSetOption kts_lang=(javascript|typescript) %{
   eval %sh{
     case $kak_bufname in
@@ -17,6 +23,12 @@ hook global BufSetOption kts_lang=(javascript|typescript) %{
     esac
   }
 }
+
+
+
+map global goto d <esc>:lsp-definition<ret> -docstring 'LSP definition'
+map global goto r <esc>:lsp-references<ret> -docstring 'LSP references'
+map global goto y <esc>:lsp-type-definition<ret> -docstring 'LSP type definition'
 
 set-face global CursorLine "default,rgba:77777720"
 define-command ui-cursorline-enable -docstring 'enable cursor line' %{
@@ -27,7 +39,10 @@ define-command ui-cursorline-enable -docstring 'enable cursor line' %{
     }
     echo -markup "{Information}cursor line enabled"
 }
-
+hook global WinSetOption filetype=vue %{
+    require-module html
+    add-highlighter window/vue ref html
+}
 hook global WinCreate .* %{
     ui-cursorline-enable 
 }
@@ -181,8 +196,8 @@ map global user '/' ':comment-line<ret>' -docstring 'comment line'
 
 
 # lsp
-eval %sh{kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
-# set global lsp_debug true
+eval %sh{/opt/homebrew/bin/kak-lsp --debug --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
+set global lsp_debug true
 lsp-enable
 declare-option -hidden str modeline_progress ""
 define-command -hidden -params 6 -override lsp-handle-progress %{
@@ -195,13 +210,14 @@ define-command -hidden -params 6 -override lsp-handle-progress %{
 
 
 set global modelinefmt "%%opt{modeline_progress} %opt{modelinefmt}"
-hook global WinSetOption filetype=(rust|javascript|nix|typescript|json|tsx|css|html) %{
+hook global WinSetOption filetype=(vue|rust|javascript|nix|typescript|json|tsx|css|html) %{
     echo -debug %opt{filetype}
     lsp-enable-window
 }
-# define-command prettier -docstring 'run prettier over current file' %{
-#     nop %sh{ npx prettier --write %val{buffile}}
-# }
+
+define-command prettier -docstring 'run prettier over current file' %{
+    nop %sh{npx prettier --stdin-filepath=%val{buffile}}
+}
 
 hook global WinSetOption filetype=(rust) %{
     #remove-hooks buffer cargo-hooks
@@ -209,11 +225,11 @@ hook global WinSetOption filetype=(rust) %{
     map global lsp f ":lsp-formatting <ret>" -docstring "format using lsp"
 }
 
-hook global WinSetOption filetype=(javascript|typescript|tsx|json|html) %{
+hook global WinSetOption filetype=(javascript|typescript|tsx|json|html|vue) %{
   set-option window formatcmd "npx prettier --stdin-filepath=%val{buffile}"
-
   map global lsp f ":format <ret>" -docstring "format prettier"
 }
+
 map global user c %{:enter-user-mode lsp<ret>} -docstring "LSP mode"
 map global insert <tab> '<a-;>:try lsp-snippets-select-next-placeholders catch %{ execute-keys -with-hooks <lt>tab> }<ret>' -docstring 'Select next snippet placeholder'
 map global object a '<a-semicolon>lsp-object<ret>' -docstring 'LSP any symbol'
