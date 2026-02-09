@@ -113,6 +113,7 @@ source ~/.config/kak/fzf/rc/modules/fzf-project.kak
 source ~/.config/kak/fzf/rc/modules/fzf-search.kak
 source ~/.config/kak/jai.kak
 source ~/.config/kak/tasks.kak
+source ~/.config/kak/timesheet.kak
 hook global BufOpenFile .* expandtab
 hook global BufNewFile  .* expandtab
 hook global WinCreate .* %{ kakboard-enable }
