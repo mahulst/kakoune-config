@@ -9,6 +9,7 @@ hook -group lsp-language-id global BufCreate .*[.]tsx %{
         set-option buffer lsp_language_id typescriptreact
     }
 }
+set-option global grepcmd 'rg -Hn --no-heading'
 
 hook global BufOpenFile .*\.vue$ %{
     set-option buffer filetype vue
@@ -23,8 +24,6 @@ hook global BufSetOption kts_lang=(javascript|typescript) %{
     esac
   }
 }
-
-
 
 map global goto d <esc>:lsp-definition<ret> -docstring 'LSP definition'
 map global goto r <esc>:lsp-references<ret> -docstring 'LSP references'
@@ -196,8 +195,7 @@ map global user '/' ':comment-line<ret>' -docstring 'comment line'
 
 
 # lsp
-eval %sh{/opt/homebrew/bin/kak-lsp --debug --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
-set global lsp_debug true
+eval %sh{/opt/homebrew/bin/kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
 lsp-enable
 declare-option -hidden str modeline_progress ""
 define-command -hidden -params 6 -override lsp-handle-progress %{
