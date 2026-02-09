@@ -74,3 +74,30 @@ define-command git-open -docstring "Open github link" %{
 map global git o ":git-open<ret>" -docstring "  Open permalink"
 
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
+
+# Git interactive rebase keybindings
+# Press a key to change the action for the current line's commit
+define-command -hidden git-rebase-set-action -params 1 %{
+    evaluate-commands -draft %{
+        execute-keys 'ghw'
+        execute-keys "c%arg{1} <esc>"
+    }
+}
+
+hook global WinSetOption filetype=git-rebase %{
+    map window normal p ':git-rebase-set-action pick<ret>'    -docstring 'pick'
+    map window normal e ':git-rebase-set-action edit<ret>'    -docstring 'edit'
+    map window normal r ':git-rebase-set-action reword<ret>'  -docstring 'reword'
+    map window normal s ':git-rebase-set-action squash<ret>'  -docstring 'squash'
+    map window normal f ':git-rebase-set-action fixup<ret>'   -docstring 'fixup'
+    map window normal d ':git-rebase-set-action drop<ret>'    -docstring 'drop'
+
+    hook -once -always window WinSetOption filetype=.* %{
+        unmap window normal p
+        unmap window normal e
+        unmap window normal r
+        unmap window normal s
+        unmap window normal f
+        unmap window normal d
+    }
+}
