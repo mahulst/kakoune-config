@@ -1,0 +1,7 @@
+### Send POST request with json body
+POST https://echo.free.beeceptor.com/
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer 123
+
+{"id": 999, "value": "content", "test": 123}
