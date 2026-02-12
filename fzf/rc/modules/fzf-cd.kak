@@ -3,7 +3,7 @@
 # https://github.com/andreyorst/fzf.kak
 
 hook global ModuleLoaded fzf %{
-    map global fzf -docstring "change directory" 'c' '<esc>: require-module fzf-cd; fzf-cd<ret>'
+    map global fzf -docstring "change directory" 'C' '<esc>: require-module fzf-cd; fzf-cd<ret>'
 }
 
 provide-module fzf-cd %§

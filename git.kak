@@ -96,6 +96,25 @@ define-command -hidden git-rebase-set-action -params 1 %{
     }
 }
 
+define-command fzf-git-changed -docstring 'fzf browse git changed files (staged and unstaged)' %{ evaluate-commands %sh{
+    toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -z "$toplevel" ]; then
+        echo "fail 'not in a git repository'"
+        exit
+    fi
+    # List changed files: both staged and unstaged, deduplicated
+    items_cmd="cd $toplevel && git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null"
+    items_cmd="($items_cmd) | sort -u"
+
+    [ -n "${kak_client_env_TMUX}" ] && additional_flags="--expect ${kak_opt_fzf_vertical_map:-ctrl-v} --expect ${kak_opt_fzf_horizontal_map:-ctrl-s}"
+
+    printf "%s\n" "fzf -preview -kak-cmd %{edit -existing} -items-cmd %{$items_cmd} -fzf-args %{-m --expect ${kak_opt_fzf_window_map:-ctrl-w} $additional_flags --preview 'cd $toplevel && git diff HEAD -- {} 2>/dev/null || cat {}'} -filter %{perl -pe \"if (/${kak_opt_fzf_window_map:-ctrl-w}|${kak_opt_fzf_vertical_map:-ctrl-v}|${kak_opt_fzf_horizontal_map:-ctrl-s}|^$/) {} else {print \\\"$toplevel/\\\"}\"}"
+}}
+
+hook global ModuleLoaded fzf %{
+    map global fzf -docstring "git changed files" 'c' '<esc>: fzf-git-changed<ret>'
+}
+
 hook global WinSetOption filetype=git-rebase %{
     map window normal p ':git-rebase-set-action pick<ret>'    -docstring 'pick'
     map window normal e ':git-rebase-set-action edit<ret>'    -docstring 'edit'
