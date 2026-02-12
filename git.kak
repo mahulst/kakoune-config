@@ -38,6 +38,18 @@ define-command git-blame-current-line %{
   info -markup -style above -anchor "%val{cursor_line}.%val{cursor_column}" -- %sh{git blame -L$kak_cursor_line,$kak_cursor_line $kak_bufname | sed -rn 's/^([^ ]+) \((.*) ([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]).*\).*$/{git_current_line_hash}\1 {git_current_line_author}\2 {git_current_line_date}\3/p'}
 }
 
+define-command git-diff-current-line-commit -docstring 'show the diff of the commit that last touched the current line' %{
+    evaluate-commands %sh{
+        commit=$(git blame -L"$kak_cursor_line,$kak_cursor_line" --porcelain "$kak_buffile" | head -1 | cut -d' ' -f1)
+        if [ -z "$commit" ] || echo "$commit" | grep -qE '^0+$'; then
+            echo "fail 'line has not been committed yet'"
+        else
+            echo "git show $commit"
+        fi
+    }
+}
+
+map global git D ':git-diff-current-line-commit<ret>' -docstring 'diff of commit at cursor line'
 map global git l ':git log<ret>' -docstring 'log'
 map global git b ':git blame<ret>' -docstring 'blame'
 map global git B ':git blame-jump<ret>' -docstring 'blame jump'
