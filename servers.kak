@@ -268,7 +268,7 @@ hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
 
         [[typescript-language-server.settings._.plugins]]
         name = "@vue/typescript-plugin"
-        location = "/Users/mahulst/.nvm/versions/node/v20.20.0/lib/node_modules/@vue/language-server"
+        location = "/Users/mahulst/.nvm/versions/node/v24.13.1/lib/node_modules/@vue/language-server"
         languages = ["vue"]
         # quotePreference = "double"
         # typescript.format.semicolons = "insert"

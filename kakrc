@@ -103,6 +103,7 @@ source ~/.config/kak/git.kak
 source ~/.config/kak/jest.kak
 source ~/.config/kak/c.kak
 source ~/.config/kak/godot.kak
+source ~/.config/kak/grep.kak
 source ~/.config/kak/tab.kak
 source ~/.config/kak/fzf/rc/fzf.kak
 source ~/.config/kak/fzf/rc/modules/fzf-cd.kak  
@@ -334,6 +335,11 @@ map -docstring "Run commands" global user <r> \
 
 map -docstring "Run jest" global user <J> \
     %{:enter-user-mode jest<ret>}
+
+declare-user-mode grep-mode
+map -docstring "Grep" global user G ':enter-user-mode grep-mode<ret>'
+map -docstring "grep (all files)" global grep-mode g ':grep-smart<ret>'
+map -docstring "grep (same filetype)" global grep-mode f ':grep-smart-filetype<ret>'
 
 define-command -override add-surrounding-pair -params 2 -docstring 'add surrounding pairs left and right to selection' %{
   evaluate-commands -no-hooks -save-regs '"' %{

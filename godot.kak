@@ -92,8 +92,8 @@ define-command \
 
 declare-user-mode godot
 
-map -docstring "Godot" global user G \
-    %{:enter-user-mode godot<ret>}
+# map -docstring "Godot" global user G \
+#     %{:enter-user-mode godot<ret>}
 
 map -docstring "Run file" \
 	global godot r %{: godot-run-file  <ret>}
