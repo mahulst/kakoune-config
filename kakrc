@@ -9,7 +9,7 @@ hook -group lsp-language-id global BufCreate .*[.]tsx %{
         set-option buffer lsp_language_id typescriptreact
     }
 }
-set-option global grepcmd 'rg -Hn --no-heading'
+set-option global grepcmd 'rg -Hn --no-heading --hidden'
 
 hook global BufOpenFile .*\.vue$ %{
     set-option buffer filetype vue
