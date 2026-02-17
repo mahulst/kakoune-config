@@ -81,6 +81,7 @@ declare-option -hidden str kaktree__active 'false'
 declare-option -hidden str kaktree__onscreen 'false'
 declare-option -hidden str kaktree__current_indent ''
 declare-option -hidden str-list kaktree__expanded_paths ''
+declare-option -hidden str kaktree__reveal_path ''
 
 set-face global kaktree_icon_face default,default+b@comment
 set-face global kaktree_hlline_face default,default+@SecondarySelection
@@ -169,16 +170,73 @@ kaktree-toggle %{ evaluate-commands %sh{
     fi
 }}
 
-define-command kaktree--display %{ evaluate-commands %{
-    kaktree-focus
+# Expand all parent directories of the current buffer's file so it becomes visible in the tree.
+# This should be called in the context of the jump client (so %val{buffile} is the current file).
+define-command -hidden kaktree--expand-to-current-file %{ evaluate-commands %sh{
+    buffile="$kak_buffile"
+    cwd="$(pwd)"
 
-    evaluate-commands -client %opt{kaktreeclient} %{
-        edit! -debug -scratch *kaktree*
-        set-option buffer filetype kaktree
-        kaktree--refresh
-        kaktree-help
+    # Only act on real files (not scratch buffers like *debug*, *kaktree*, etc.)
+    case "$buffile" in
+        \**|*\**) exit ;;
+    esac
 
-    }
+    # Check that the file is under the current working directory
+    case "$buffile" in
+        "$cwd"/*) ;;
+        *) exit ;;
+    esac
+
+    # Store the file path for later use by kaktree--refresh to select it
+    escaped_buffile=$(echo "$buffile" | sed 's/#/##/g')
+    printf "%s\n" "set-option global kaktree__reveal_path %#$escaped_buffile#"
+
+    # Strip the cwd prefix and the filename to get the relative directory path
+    rel="${buffile#$cwd/}"
+
+    # Build up each ancestor directory path and add it to expanded_paths
+    accumulator="$cwd"
+    # Use POSIX-compatible path splitting
+    remaining="$rel"
+    while [ -n "$remaining" ]; do
+        # Get the first path component
+        case "$remaining" in
+            */*)
+                part="${remaining%%/*}"
+                remaining="${remaining#*/}"
+                ;;
+            *)
+                # This is the filename (last component) - skip it
+                break
+                ;;
+        esac
+        accumulator="$accumulator/$part"
+        escaped=$(echo "$accumulator" | sed 's/#/##/g')
+        printf "%s\n" "set -add global kaktree__expanded_paths %#$escaped#"
+    done
+}}
+
+define-command kaktree--display %{ evaluate-commands %sh{
+    # Determine which client to read the current file from.
+    # If we're calling from a non-kaktree client, use the current client directly.
+    # If we're calling from the kaktree client, fall back to kaktree__jumpclient.
+    if [ "$kak_client" != "$kak_opt_kaktreeclient" ]; then
+        source_client="$kak_client"
+    else
+        source_client="$kak_opt_kaktree__jumpclient"
+    fi
+    printf "%s\n" "
+        try %{
+            evaluate-commands -client %{${source_client}} kaktree--expand-to-current-file
+        }
+        kaktree-focus
+        evaluate-commands -client %opt{kaktreeclient} %{
+            edit! -debug -scratch *kaktree*
+            set-option buffer filetype kaktree
+            kaktree--refresh
+            kaktree-help
+        }
+    "
 }}
 
 define-command -docstring "kaktree-focus: Focus Kaktree client" \
@@ -239,10 +297,66 @@ define-command -hidden kaktree--refresh %{ evaluate-commands %sh{
                        set-option buffer tabstop 1
                    }}"
 
+    reveal_path="$kak_opt_kaktree__reveal_path"
+    reveal_filename=""
+    reveal_indent=""
+    kaktreeclient="$kak_opt_kaktreeclient"
+    file_icon="$kak_opt_kaktree_file_icon"
+    if [ -n "$reveal_path" ]; then
+        reveal_filename=$(basename -- "$reveal_path")
+        cwd="$(pwd)"
+        rel="${reveal_path#$cwd/}"
+        # Count path depth for indentation
+        depth=0
+        remaining="$rel"
+        while [ -n "$remaining" ]; do
+            case "$remaining" in
+                */*) depth=$((depth + 1)); remaining="${remaining#*/}" ;;
+                *)   depth=$((depth + 1)); break ;;
+            esac
+        done
+        expected_spaces=$((kak_opt_kaktree_indentation * depth))
+        reveal_indent=""
+        i=0
+        while [ "$i" -lt "$expected_spaces" ]; do
+            reveal_indent="${reveal_indent} "
+            i=$((i + 1))
+        done
+    fi
+
+    # If we have a file to reveal, find its line number in the generated tree
+    reveal_line_num=""
+    if [ -n "$reveal_path" ]; then
+        search_line="${reveal_indent}${file_icon} ${reveal_filename}"
+        reveal_line_num=$(command perl -e '
+            open(my $fh, "<", $ARGV[0]) or exit;
+            my $target = $ARGV[1];
+            my $n = 0;
+            while (<$fh>) {
+                $n++;
+                chomp;
+                if ($_ eq $target) {
+                    print "$n";
+                    exit;
+                }
+            }
+        ' "${tree}" "${search_line}")
+    fi
+
     (
         cat ${tree} > ${fifo}; rm -rf ${tmp};
-        # Restore the selections after the tree has been loaded
-        printf "%s\n" "evaluate-commands -client %opt{kaktreeclient} %{ select $saved_selection }" | kak -p "$kak_session"
+        # If we have a file to reveal, select it; otherwise restore previous selection
+        if [ -n "$reveal_line_num" ]; then
+            printf "%s\n" "evaluate-commands -client ${kaktreeclient} %{
+                execute-keys ${reveal_line_num}g
+            }" | kak -p "$kak_session"
+        else
+            printf "%s\n" "evaluate-commands -client ${kaktreeclient} %{ select $saved_selection }" | kak -p "$kak_session"
+        fi
+        # Always clear reveal path after a refresh
+        if [ -n "$reveal_path" ]; then
+            printf "%s\n" "set-option global kaktree__reveal_path ''" | kak -p "$kak_session"
+        fi
         printf "%s\n" "kaktree--hlline-update" | kak -p "$kak_session"
     ) > /dev/null 2>&1 < /dev/null &
 }}
