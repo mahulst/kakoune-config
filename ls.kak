@@ -65,23 +65,9 @@ define-command -hidden jump_to_files_or_directories_and_close_ls_buffer %{
 }
 
 
-define-command fifo -params 1.. %{
-  evaluate-commands %sh{
-    fifo=$(mktemp -u)
-    mkfifo "$fifo"
-    { "$@" > "$fifo" 2>&1; } < /dev/null > /dev/null 2>&1 &
-    cat <<EOF
-      edit! -fifo "$fifo" -- "$fifo"
-      hook -always -once buffer BufCloseFifo "" %{
-        nop %sh{
-          unlink "$fifo"
-        }
-      }
-EOF
-  }
-}
 map global user L ": ls<ret>" -docstring "Explore directory"
 
-complete-command fifo shell
-
-alias global ! fifo
+hook -once global KakBegin .* %{
+    require-module fifo
+    alias global ! fifo
+}

@@ -13,7 +13,7 @@ declare-option -hidden str kaktree__perl "require qw(%opt{kaktree__source}/perl/
 define-command -docstring "kaktree-enable: Create kaktree window if not exist and enable related hooks." \
 kaktree-enable %{
     require-module kaktree
-    kaktree--enable-impl
+    evaluate-commands kaktree--enable-impl
 }
 
 provide-module kaktree %§

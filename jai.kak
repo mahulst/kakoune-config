@@ -24,6 +24,7 @@ map -docstring "Run current file" \
 
 hook global WinSetOption filetype=jai %{
     require-module jai
+    evaluate-commands %{
 
     set-option window static_words %opt{jai_static_words}
 
@@ -44,7 +45,7 @@ hook global WinSetOption filetype=jai %{
         remove-hooks window jai-.+
         unalias window alt jai-alternative-file
     }
-}
+}}
 
 hook -group jai-highlight global WinSetOption filetype=jai %{
     add-highlighter window/jai ref jai
