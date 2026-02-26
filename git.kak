@@ -85,7 +85,53 @@ define-command git-open -docstring "Open github link" %{
 }
 map global git o ":git-open<ret>" -docstring "  Open permalink"
 
+map global git m ':git-conflicts<ret>' -docstring 'merge conflicts'
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
+
+# Git merge conflicts buffer
+declare-option -hidden str git_conflicts_root
+
+define-command git-conflicts -docstring 'list files with merge conflicts' %{
+    evaluate-commands %sh{
+        toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'not in a git repository'"
+            exit
+        fi
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-conflicts.XXXXXXXX)/fifo
+        mkfifo ${output}
+        ( cd "$toplevel" && git diff --name-only --diff-filter=U > ${output} 2>&1 ) > /dev/null 2>&1 < /dev/null &
+        printf %s\\n "
+            try %{ delete-buffer *git-conflicts* }
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-conflicts*
+                set-option buffer filetype git-conflicts
+                set-option buffer git_conflicts_root '${toplevel}'
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+define-command -hidden git-conflicts-jump %{
+    evaluate-commands -save-regs 'f' %{
+        execute-keys -draft 'xH"fy'
+        evaluate-commands -try-client %opt{jumpclient} %{
+            edit -existing "%opt{git_conflicts_root}/%reg{f}"
+            try %{ focus }
+        }
+    }
+}
+
+hook global WinSetOption filetype=git-conflicts %{
+    map -docstring 'jump to file' buffer normal <ret> ':git-conflicts-jump<ret>'
+}
+
+hook global WinSetOption filetype=(?!git-conflicts).* %{
+    unmap buffer normal <ret> ':git-conflicts-jump<ret>'
+}
 
 # Git interactive rebase keybindings
 # Press a key to change the action for the current line's commit
