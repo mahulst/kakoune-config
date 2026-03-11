@@ -302,8 +302,13 @@ define-command -hidden kaktree--refresh %{ evaluate-commands %sh{
     reveal_indent=""
     kaktreeclient="$kak_opt_kaktreeclient"
     file_icon="$kak_opt_kaktree_file_icon"
+    dir_icon_close="$kak_opt_kaktree_dir_icon_close"
+    reveal_icon="$file_icon"
     if [ -n "$reveal_path" ]; then
         reveal_filename=$(basename -- "$reveal_path")
+        if [ -d "$reveal_path" ]; then
+            reveal_icon="$dir_icon_close"
+        fi
         cwd="$(pwd)"
         rel="${reveal_path#$cwd/}"
         # Count path depth for indentation
@@ -327,7 +332,7 @@ define-command -hidden kaktree--refresh %{ evaluate-commands %sh{
     # If we have a file to reveal, find its line number in the generated tree
     reveal_line_num=""
     if [ -n "$reveal_path" ]; then
-        search_line="${reveal_indent}${file_icon} ${reveal_filename}"
+        search_line="${reveal_indent}${reveal_icon} ${reveal_filename}"
         reveal_line_num=$(command perl -e '
             open(my $fh, "<", $ARGV[0]) or exit;
             my $target = $ARGV[1];
@@ -631,12 +636,62 @@ define-command -hidden kaktree--file-action -params 1 %{  evaluate-commands -sav
 
 define-command -hidden kaktree--file-new %{ evaluate-commands -save-regs 'k' %{
     kaktree--get-current-path
-    kaktree--shell-prompt "touch %val{main_reg_k}"
+    evaluate-commands -client %opt{kaktree__jumpclient} %{
+        focus %opt{kaktree__jumpclient}
+        prompt -init %val{main_reg_k} -on-abort %{
+            focus %opt{kaktreeclient}
+        } "new file: " %{
+            try %{
+                evaluate-commands %sh{
+                    path="$kak_text"
+                    [ -z "$path" ] && exit 0
+                    case "$path" in
+                        /*) target="$path" ;;
+                        *) target="$PWD/$path" ;;
+                    esac
+                    mkdir -p "$(dirname -- "$target")" && touch "$target"
+                    escaped=$(printf "%s" "$target" | sed 's/#/##/g')
+                    printf "%s\n" "set-option global kaktree__reveal_path %#$escaped#"
+                }
+            } catch %{
+                echo -debug "Error creating file %val{text}:"
+                echo -debug %val{error}
+                echo -markup "{Error}%val{error}"
+            }
+            focus %opt{kaktreeclient}
+            kaktree--refresh
+        }
+    }
 }}
 
 define-command -hidden kaktree--mkdir %{ evaluate-commands -save-regs 'k' %{
     kaktree--get-current-path
-    kaktree--shell-prompt "mkdir -p %val{main_reg_k}"
+    evaluate-commands -client %opt{kaktree__jumpclient} %{
+        focus %opt{kaktree__jumpclient}
+        prompt -init %val{main_reg_k} -on-abort %{
+            focus %opt{kaktreeclient}
+        } "new directory: " %{
+            try %{
+                evaluate-commands %sh{
+                    path="$kak_text"
+                    [ -z "$path" ] && exit 0
+                    case "$path" in
+                        /*) target="$path" ;;
+                        *) target="$PWD/$path" ;;
+                    esac
+                    mkdir -p "$target"
+                    escaped=$(printf "%s" "$target" | sed 's/#/##/g')
+                    printf "%s\n" "set-option global kaktree__reveal_path %#$escaped#"
+                }
+            } catch %{
+                echo -debug "Error creating directory %val{text}:"
+                echo -debug %val{error}
+                echo -markup "{Error}%val{error}"
+            }
+            focus %opt{kaktreeclient}
+            kaktree--refresh
+        }
+    }
 }}
 
 define-command -hidden kaktree--file-open -params 1 %{
@@ -746,4 +801,3 @@ hook -group kaktree-powerline global WinSetOption filetype=kaktree %{
 §
 
 # kak: indentwidth=4:tabstop=4
-
