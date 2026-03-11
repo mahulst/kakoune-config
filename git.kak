@@ -5,6 +5,10 @@ declare-user-mode git
 map global git <ret> ':git blame-jump<ret>' -docstring 'open last commit that touched current line'
 map global git n ':git next-hunk<ret>' -docstring 'goto next hunk'
 map global git p ':git prev-hunk<ret>' -docstring 'goto previous hunk'
+map global git r ':git apply --cached --reverse<ret>' -docstring 'git undo add selection'
+map global git a ':git apply --cached<ret>' -docstring 'git add selection'
+map global git R ':git reset HEAD -- %val{buffile}<ret>' -docstring 'git reset file'
+map global git A ':git add<ret>' -docstring 'git add file'
 
 # Main hook (git branch update, gutters)
 hook global -group git-main-hook NormalIdle .* %{

@@ -56,7 +56,7 @@ define-command jest-open-file %{
 define-command jest-run-file -docstring 'Run current buffer as jest test' %{
     evaluate-commands %sh{
         filename=$(basename "$kak_buffile")
-        echo "run-in-fifo 'DEBUG_PRINT_LIMIT=100000 COLORS=false npx jest -- ${filename%.*}' jest"
+        echo "run-in-fifo 'DEBUG_PRINT_LIMIT=100000 COLORS=false pnpm test ${filename%.*}' jest"
     } 
 }
 

@@ -228,8 +228,30 @@ hook global WinSetOption filetype=(rust) %{
 }
 
 hook global WinSetOption filetype=(javascript|typescript|tsx|json|html|vue) %{
-  set-option window formatcmd "npx prettier --stdin-filepath=%val{buffile}"
-  map global lsp f ":format <ret>" -docstring "format prettier"
+  evaluate-commands %sh{
+    if [ -n "$kak_buffile" ]; then
+      dir=$(dirname "$kak_buffile")
+    else
+      dir="$PWD"
+    fi
+    pkg_json=""
+
+    while [ "$dir" != "/" ]; do
+      if [ -f "$dir/package.json" ]; then
+        pkg_json="$dir/package.json"
+        break
+      fi
+      dir=$(dirname "$dir")
+    done
+
+    if [ -n "$pkg_json" ] && jq -r . "$pkg_json" 2>/dev/null | grep -q oxfmt; then
+      printf 'set-option window formatcmd "npx oxfmt --stdin-filepath=%%val{buffile}"\n'
+      printf 'map global lsp f ":format <ret>" -docstring "format oxfmt"\n'
+    else
+      printf 'set-option window formatcmd "npx prettier --stdin-filepath=%%val{buffile}"\n'
+      printf 'map global lsp f ":format <ret>" -docstring "format prettier"\n'
+    fi
+  }
 }
 
 map global user c %{:enter-user-mode lsp<ret>} -docstring "LSP mode"
