@@ -234,17 +234,10 @@ hook global WinSetOption filetype=(javascript|typescript|tsx|json|html|vue) %{
     else
       dir="$PWD"
     fi
-    pkg_json=""
+    git_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+    pkg_json="$git_root/package.json"
 
-    while [ "$dir" != "/" ]; do
-      if [ -f "$dir/package.json" ]; then
-        pkg_json="$dir/package.json"
-        break
-      fi
-      dir=$(dirname "$dir")
-    done
-
-    if [ -n "$pkg_json" ] && jq -r . "$pkg_json" 2>/dev/null | grep -q oxfmt; then
+    if [ -n "$git_root" ] && [ -f "$pkg_json" ] && grep -q '"oxfmt"' "$pkg_json"; then
       printf 'set-option window formatcmd "npx oxfmt --stdin-filepath=%%val{buffile}"\n'
       printf 'map global lsp f ":format <ret>" -docstring "format oxfmt"\n'
     else
