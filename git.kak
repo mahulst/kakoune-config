@@ -166,10 +166,10 @@ define-command git-file-history -docstring 'list commits that changed current fi
         output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-file-history.XXXXXXXX)/fifo
         mkfifo "$output"
         (
-            git -C "$toplevel" log --follow --format='%H%x09%cn%x09%s' -- "$relpath" \
-                | while IFS=$'\t' read -r full_hash committer subject; do
+            git -C "$toplevel" log --follow --date=format-local:'%Y-%m-%dT%H:%M' --format='%H%x09%cn%x09%cd%x09%s' -- "$relpath" \
+                | while IFS=$'\t' read -r full_hash committer commit_time subject; do
                     short_hash=$(git -C "$toplevel" rev-parse --short=4 "$full_hash" 2>/dev/null)
-                    printf '%s (%s): %s\n' "$short_hash" "$committer" "$subject"
+                    printf '%s (%s@%s): %s\n' "$short_hash" "$committer" "$commit_time" "$subject"
                 done > "$output" 2>&1
         ) > /dev/null 2>&1 < /dev/null &
 
