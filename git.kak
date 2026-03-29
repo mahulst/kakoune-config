@@ -90,7 +90,7 @@ define-command git-open -docstring "Open github link" %{
 map global git o ":git-open<ret>" -docstring "  Open permalink"
 
 map global git m ':git-conflicts<ret>' -docstring 'merge conflicts'
-map global git f ':git-file-history<ret>' -docstring 'commits for current file'
+map global git h ':git-file-history<ret>' -docstring 'commits for current file'
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
 
 # Git merge conflicts buffer
@@ -191,13 +191,17 @@ define-command git-file-history -docstring 'list commits that changed current fi
     }
 }
 
-define-command -hidden git-file-history-open-commit %{
+define-command -hidden git-file-history-select-hash %{
     evaluate-commands -draft %{
         execute-keys 'x'
         set-option buffer git_file_history_selected_hash %sh{
             printf '%s' "$kak_selection" | sed -E 's/^([0-9a-fA-F]+).*/\1/'
         }
     }
+}
+
+define-command -hidden git-file-history-open-commit %{
+    git-file-history-select-hash
 
     evaluate-commands %sh{
         hash="$kak_opt_git_file_history_selected_hash"
@@ -207,12 +211,11 @@ define-command -hidden git-file-history-open-commit %{
         fi
 
         root="$kak_opt_git_file_history_root"
-        file="$kak_opt_git_file_history_path"
         short_hash=$(printf '%s' "$hash" | cut -c1-12)
 
         output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-show.XXXXXXXX)/fifo
         mkfifo "$output"
-        ( git -C "$root" show "$hash" -- "$file" > "$output" 2>&1 ) > /dev/null 2>&1 < /dev/null &
+        ( git -C "$root" show "$hash" > "$output" 2>&1 ) > /dev/null 2>&1 < /dev/null &
 
         printf %s\\n "
             evaluate-commands -try-client %opt[toolsclient] %{
@@ -226,12 +229,44 @@ define-command -hidden git-file-history-open-commit %{
     }
 }
 
+define-command -hidden git-file-history-open-commit-file %{
+    git-file-history-select-hash
+
+    evaluate-commands %sh{
+        hash="$kak_opt_git_file_history_selected_hash"
+        if ! printf '%s' "$hash" | grep -Eq '^[0-9a-fA-F]{4,40}$'; then
+            echo "fail 'no commit hash on current line'"
+            exit
+        fi
+
+        root="$kak_opt_git_file_history_root"
+        file="$kak_opt_git_file_history_path"
+        short_hash=$(printf '%s' "$hash" | cut -c1-12)
+
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-show-file.XXXXXXXX)/fifo
+        mkfifo "$output"
+        ( git -C "$root" show "$hash" -- "$file" > "$output" 2>&1 ) > /dev/null 2>&1 < /dev/null &
+
+        printf %s\\n "
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-file-diff-${short_hash}*
+                set-option buffer filetype diff
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
 hook global WinSetOption filetype=git-file-history %{
-    map -docstring 'open diff for selected commit' buffer normal <ret> ':git-file-history-open-commit<ret>'
+    map -docstring 'open current-file diff only' buffer normal <ret> ':git-file-history-open-commit-file<ret>'
+    map -docstring 'open full commit diff' buffer normal <a-ret> ':git-file-history-open-commit<ret>'
 }
 
 hook global WinSetOption filetype=(?!git-file-history).* %{
     unmap buffer normal <ret> ':git-file-history-open-commit<ret>'
+    unmap buffer normal <a-ret> ':git-file-history-open-commit-file<ret>'
 }
 
 # Git interactive rebase keybindings
