@@ -90,10 +90,16 @@ define-command git-open -docstring "Open github link" %{
 map global git o ":git-open<ret>" -docstring "  Open permalink"
 
 map global git m ':git-conflicts<ret>' -docstring 'merge conflicts'
+map global git f ':git-file-history<ret>' -docstring 'commits for current file'
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
 
 # Git merge conflicts buffer
 declare-option -hidden str git_conflicts_root
+
+# Git file history buffers
+declare-option -hidden str git_file_history_root
+declare-option -hidden str git_file_history_path
+declare-option -hidden str git_file_history_selected_hash
 
 define-command git-conflicts -docstring 'list files with merge conflicts' %{
     evaluate-commands %sh{
@@ -135,6 +141,97 @@ hook global WinSetOption filetype=git-conflicts %{
 
 hook global WinSetOption filetype=(?!git-conflicts).* %{
     unmap buffer normal <ret> ':git-conflicts-jump<ret>'
+}
+
+define-command git-file-history -docstring 'list commits that changed current file' %{
+    evaluate-commands %sh{
+        if [ -z "$kak_buffile" ]; then
+            echo "fail 'current buffer is not backed by a file'"
+            exit
+        fi
+
+        file_dir=$(dirname "$kak_buffile")
+        toplevel=$(git -C "$file_dir" rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'current file is not in a git repository'"
+            exit
+        fi
+
+        relpath="${kak_buffile#"$toplevel"/}"
+        if [ "$relpath" = "$kak_buffile" ]; then
+            echo "fail 'could not resolve file path from repository root'"
+            exit
+        fi
+
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-file-history.XXXXXXXX)/fifo
+        mkfifo "$output"
+        (
+            git -C "$toplevel" log --follow --format='%H%x09%cn%x09%s' -- "$relpath" \
+                | while IFS=$'\t' read -r full_hash committer subject; do
+                    short_hash=$(git -C "$toplevel" rev-parse --short=4 "$full_hash" 2>/dev/null)
+                    printf '%s (%s): %s\n' "$short_hash" "$committer" "$subject"
+                done > "$output" 2>&1
+        ) > /dev/null 2>&1 < /dev/null &
+
+        escaped_toplevel=$(printf "%s" "$toplevel" | sed "s/'/'\\\\''/g")
+        escaped_relpath=$(printf "%s" "$relpath" | sed "s/'/'\\\\''/g")
+
+        printf %s\\n "
+            try %{ delete-buffer *git-file-history* }
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-file-history*
+                set-option buffer filetype git-file-history
+                set-option buffer git_file_history_root '${escaped_toplevel}'
+                set-option buffer git_file_history_path '${escaped_relpath}'
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+define-command -hidden git-file-history-open-commit %{
+    evaluate-commands -draft %{
+        execute-keys 'x'
+        set-option buffer git_file_history_selected_hash %sh{
+            printf '%s' "$kak_selection" | sed -E 's/^([0-9a-fA-F]+).*/\1/'
+        }
+    }
+
+    evaluate-commands %sh{
+        hash="$kak_opt_git_file_history_selected_hash"
+        if ! printf '%s' "$hash" | grep -Eq '^[0-9a-fA-F]{4,40}$'; then
+            echo "fail 'no commit hash on current line'"
+            exit
+        fi
+
+        root="$kak_opt_git_file_history_root"
+        file="$kak_opt_git_file_history_path"
+        short_hash=$(printf '%s' "$hash" | cut -c1-12)
+
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-show.XXXXXXXX)/fifo
+        mkfifo "$output"
+        ( git -C "$root" show "$hash" -- "$file" > "$output" 2>&1 ) > /dev/null 2>&1 < /dev/null &
+
+        printf %s\\n "
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-diff-${short_hash}*
+                set-option buffer filetype diff
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+hook global WinSetOption filetype=git-file-history %{
+    map -docstring 'open diff for selected commit' buffer normal <ret> ':git-file-history-open-commit<ret>'
+}
+
+hook global WinSetOption filetype=(?!git-file-history).* %{
+    unmap buffer normal <ret> ':git-file-history-open-commit<ret>'
 }
 
 # Git interactive rebase keybindings
