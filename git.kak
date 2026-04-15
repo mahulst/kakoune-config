@@ -92,6 +92,7 @@ map global git o ":git-open<ret>" -docstring "  Open permalink"
 map global git m ':git-conflicts<ret>' -docstring 'merge conflicts'
 map global git h ':git-file-history<ret>' -docstring 'commits for current file'
 map global git H ':git-repo-history<ret>' -docstring 'last 100 commits for repo'
+map global git S ':git-stashes<ret>' -docstring 'list stashes'
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
 
 # Git merge conflicts buffer
@@ -103,6 +104,7 @@ declare-option -hidden str git_file_history_path
 declare-option -hidden str git_file_history_selected_hash
 declare-option -hidden str git_repo_history_root
 declare-option -hidden str git_repo_history_selected_hash
+declare-option -hidden str git_stash_root
 
 define-command git-conflicts -docstring 'list files with merge conflicts' %{
     evaluate-commands %sh{
@@ -334,6 +336,141 @@ define-command -hidden git-repo-history-open-commit %{
     }
 }
 
+define-command git-stashes -docstring 'list repository stashes' %{
+    evaluate-commands %sh{
+        toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'not in a git repository'"
+            exit
+        fi
+
+        tmpdir=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-stashes.XXXXXXXX)
+        output="$tmpdir/fifo"
+        mkfifo "$output"
+
+        (
+            (
+                git -C "$toplevel" stash list -n 10 --date=format-local:'%Y-%m-%dT%H:%M' --format='%gd%x09%H%x09%P%x09%cd%x09%s' \
+                    | while IFS=$'\t' read -r stash_ref stash_hash stash_parents stash_time stash_subject; do
+                        base_hash=${stash_parents%% *}
+                        if [ -z "$base_hash" ]; then
+                            base_hash="$stash_hash"
+                        fi
+                        short_hash=$(git -C "$toplevel" rev-parse --short=8 "$base_hash" 2>/dev/null)
+                        base_subject=$(git -C "$toplevel" log -1 --format='%s' "$base_hash" 2>/dev/null)
+                        if [ -z "$base_subject" ]; then
+                            base_subject="$stash_subject"
+                        fi
+                        short_subject=$(printf '%.20s' "$base_subject")
+                        changed_files=$(git -C "$toplevel" stash show --numstat "$stash_ref" | wc -l | tr -d '[:space:]')
+
+                        printf '%s(%s): @%s (%s) files changed\n' "$short_hash" "$short_subject" "$stash_time" "$changed_files"
+                    done
+
+                if ! git -C "$toplevel" rev-parse -q --verify 'stash@{0}' > /dev/null 2>&1; then
+                    printf 'no stashes found\n'
+                fi
+            ) > "$output" 2>&1
+        ) > /dev/null 2>&1 < /dev/null &
+
+        escaped_toplevel=$(printf "%s" "$toplevel" | sed "s/'/'\\''/g")
+
+        printf %s\\n "
+            try %{ delete-buffer *git-stashes* }
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-stashes*
+                set-option buffer filetype git-stash-list
+                set-option buffer git_stash_root '${escaped_toplevel}'
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+define-command -hidden git-stashes-open-patch %{
+    evaluate-commands %sh{
+        root="$kak_opt_git_stash_root"
+        stash_idx=$(($kak_cursor_line - 1))
+        stash_ref="stash@{$stash_idx}"
+
+        if ! git -C "$root" rev-parse -q --verify "$stash_ref" > /dev/null 2>&1; then
+            echo "fail 'no stash selected on current line'"
+            exit
+        fi
+
+        short_ref=$(printf '%s' "$stash_ref" | tr -cd '0-9')
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-stash-show.XXXXXXXX)/fifo
+        mkfifo "$output"
+        ( git -C "$root" stash show -p "$stash_ref" > "$output" 2>&1 ) > /dev/null 2>&1 < /dev/null &
+
+        printf %s\\n "
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-stash-${short_ref}*
+                set-option buffer filetype diff
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+define-command -hidden git-stashes-apply %{
+    evaluate-commands %sh{
+        root="$kak_opt_git_stash_root"
+        stash_idx=$(($kak_cursor_line - 1))
+        stash_ref="stash@{$stash_idx}"
+
+        if ! git -C "$root" rev-parse -q --verify "$stash_ref" > /dev/null 2>&1; then
+            echo "fail 'no stash selected on current line'"
+            exit
+        fi
+
+        short_ref=$(printf '%s' "$stash_ref" | tr -cd '0-9')
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-stash-apply.XXXXXXXX)/fifo
+        mkfifo "$output"
+        ( git -C "$root" stash apply "$stash_ref" > "$output" 2>&1 ) > /dev/null 2>&1 < /dev/null &
+
+        printf %s\\n "
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-stash-apply-${short_ref}*
+                set-option buffer filetype git-commit
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+define-command -hidden git-stashes-drop %{
+    evaluate-commands %sh{
+        root="$kak_opt_git_stash_root"
+        stash_idx=$(($kak_cursor_line - 1))
+        stash_ref="stash@{$stash_idx}"
+
+        if ! git -C "$root" rev-parse -q --verify "$stash_ref" > /dev/null 2>&1; then
+            echo "fail 'no stash selected on current line'"
+            exit
+        fi
+
+        drop_output=$(git -C "$root" stash drop "$stash_ref" 2>&1)
+        status=$?
+        escaped_output=$(printf "%s" "$drop_output" | sed "s/'/'\\''/g")
+
+        if [ "$status" -ne 0 ]; then
+            echo "fail '$escaped_output'"
+            exit
+        fi
+
+        escaped_ref=$(printf "%s" "$stash_ref" | sed "s/'/'\\''/g")
+        echo "info 'dropped $escaped_ref'"
+        echo "git-stashes"
+    }
+}
+
 hook global WinSetOption filetype=git-file-history %{
     map -docstring 'open current-file diff only' buffer normal <ret> ':git-file-history-open-commit-file<ret>'
     map -docstring 'open full commit diff' buffer normal <a-ret> ':git-file-history-open-commit<ret>'
@@ -352,6 +489,18 @@ hook global WinSetOption filetype=git-repo-history %{
 hook global WinSetOption filetype=(?!git-repo-history).* %{
     unmap buffer normal <ret> ':git-repo-history-open-commit<ret>'
     unmap buffer normal <a-ret> ':git-repo-history-open-commit<ret>'
+}
+
+hook global WinSetOption filetype=git-stash-list %{
+    map -docstring 'open stash patch' buffer normal <ret> ':git-stashes-open-patch<ret>'
+    map -docstring 'apply stash' buffer normal <a-ret> ':git-stashes-apply<ret>'
+    map -docstring 'drop stash' buffer normal <backspace> ':git-stashes-drop<ret>'
+}
+
+hook global WinSetOption filetype=(?!git-stash-list).* %{
+    unmap buffer normal <ret> ':git-stashes-open-patch<ret>'
+    unmap buffer normal <a-ret> ':git-stashes-apply<ret>'
+    unmap buffer normal <backspace> ':git-stashes-drop<ret>'
 }
 
 # Git interactive rebase keybindings
