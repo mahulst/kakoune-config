@@ -37,6 +37,9 @@ set-face global GitBlameLineRef red,black
 set-face global GitBlameLineSummary green,black
 set-face global GitBlameLineAuthor blue,black
 set-face global GitBlameLineTime default,black@comment
+set-face global GitBranchDate cyan
+set-face global GitBranchName yellow
+set-face global GitBranchAuthor green
 
 define-command git-blame-current-line %{
   info -markup -style above -anchor "%val{cursor_line}.%val{cursor_column}" -- %sh{git blame -L$kak_cursor_line,$kak_cursor_line $kak_bufname | sed -rn 's/^([^ ]+) \((.*) ([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]).*\).*$/{git_current_line_hash}\1 {git_current_line_author}\2 {git_current_line_date}\3/p'}
@@ -93,6 +96,7 @@ map global git m ':git-conflicts<ret>' -docstring 'merge conflicts'
 map global git h ':git-file-history<ret>' -docstring 'commits for current file'
 map global git H ':git-repo-history<ret>' -docstring 'last 100 commits for repo'
 map global git S ':git-stashes<ret>' -docstring 'list stashes'
+map global git t ':git-branches-by-date<ret>' -docstring 'branches by last commit date'
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
 
 # Git merge conflicts buffer
@@ -105,6 +109,77 @@ declare-option -hidden str git_file_history_selected_hash
 declare-option -hidden str git_repo_history_root
 declare-option -hidden str git_repo_history_selected_hash
 declare-option -hidden str git_stash_root
+declare-option -hidden str git_branch_list_root
+declare-option -hidden str git_branch_list_selected
+
+define-command git-branches-by-date -docstring 'list local branches sorted by last commit date' %{
+    evaluate-commands %sh{
+        toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'not in a git repository'"
+            exit
+        fi
+
+        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-git-branches.XXXXXXXX)/fifo
+        mkfifo "$output"
+        (
+            git -C "$toplevel" for-each-ref --sort=-committerdate --format='%(committerdate:short)|%(refname:short)|%(authorname)' refs/heads \
+                | while IFS='|' read -r branch_date branch_name branch_author; do
+                    printf '%s:%s(%s)\n' "$branch_date" "$branch_name" "$branch_author"
+                done > "$output" 2>&1
+        ) > /dev/null 2>&1 < /dev/null &
+
+        escaped_toplevel=$(printf "%s" "$toplevel" | sed "s/'/'\\''/g")
+
+        printf %s\\n "
+            try %{ delete-buffer *git-branches* }
+            evaluate-commands -try-client %opt[toolsclient] %{
+                edit! -fifo ${output} -scroll *git-branches*
+                set-option buffer filetype git-branches
+                set-option buffer git_branch_list_root '${escaped_toplevel}'
+                hook -once buffer BufCloseFifo .* %{
+                    nop %sh{ rm -r \\$(dirname ${output}) }
+                }
+            }
+        "
+    }
+}
+
+define-command -hidden git-branches-select-branch %{
+    evaluate-commands -draft %{
+        execute-keys 'x'
+        set-option buffer git_branch_list_selected %sh{
+            printf '%s' "$kak_selection" | sed -En 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}:(.*)\([^()]*\)$/\1/p'
+        }
+    }
+}
+
+define-command -hidden git-branches-checkout %{
+    git-branches-select-branch
+
+    evaluate-commands %sh{
+        root="$kak_opt_git_branch_list_root"
+        branch="$kak_opt_git_branch_list_selected"
+
+        if [ -z "$branch" ]; then
+            echo "fail 'no branch found on current line'"
+            exit
+        fi
+
+        checkout_output=$(git -C "$root" checkout "$branch" 2>&1)
+        status=$?
+
+        if [ "$status" -ne 0 ]; then
+            escaped_output=$(printf "%s" "$checkout_output" | sed "s/'/'\\''/g")
+            echo "fail '$escaped_output'"
+            exit
+        fi
+
+        escaped_branch=$(printf "%s" "$branch" | sed "s/'/'\\''/g")
+        echo "info 'checked out $escaped_branch'"
+        echo "git-branches-by-date"
+    }
+}
 
 define-command git-conflicts -docstring 'list files with merge conflicts' %{
     evaluate-commands %sh{
@@ -501,6 +576,20 @@ hook global WinSetOption filetype=(?!git-stash-list).* %{
     unmap buffer normal <ret> ':git-stashes-open-patch<ret>'
     unmap buffer normal <a-ret> ':git-stashes-apply<ret>'
     unmap buffer normal <backspace> ':git-stashes-drop<ret>'
+}
+
+hook global WinSetOption filetype=git-branches %{
+    add-highlighter window/git-branches-date regex '^([0-9]{4}-[0-9]{2}-[0-9]{2})(:)' 1:GitBranchDate
+    add-highlighter window/git-branches-name regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}:([^(]+)(\()' 1:GitBranchName
+    add-highlighter window/git-branches-author regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}:[^(]+\(([^)]*)\)$' 1:GitBranchAuthor
+    map -docstring 'checkout branch at cursor' buffer normal <ret> ':git-branches-checkout<ret>'
+}
+
+hook global WinSetOption filetype=(?!git-branches).* %{
+    remove-highlighter window/git-branches-date
+    remove-highlighter window/git-branches-name
+    remove-highlighter window/git-branches-author
+    unmap buffer normal <ret> ':git-branches-checkout<ret>'
 }
 
 # Git interactive rebase keybindings
