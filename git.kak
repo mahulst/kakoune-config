@@ -586,9 +586,9 @@ hook global WinSetOption filetype=git-branches %{
 }
 
 hook global WinSetOption filetype=(?!git-branches).* %{
-    remove-highlighter window/git-branches-date
-    remove-highlighter window/git-branches-name
-    remove-highlighter window/git-branches-author
+    try %{ remove-highlighter window/git-branches-date }
+    try %{ remove-highlighter window/git-branches-name }
+    try %{ remove-highlighter window/git-branches-author }
     unmap buffer normal <ret> ':git-branches-checkout<ret>'
 }
 

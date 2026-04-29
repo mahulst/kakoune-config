@@ -70,14 +70,25 @@ hook global WinSetOption filetype=(?!last-fifo-list).* %{
 }
 
 define-command run-from-last-fifo-list %{
-    execute-keys "gh"
-    set-register "b" %reg{/}
-    set-register "/" %opt{fifo_list_item}
-    execute-keys "<n>"
+    evaluate-commands %sh{
+        line=$(awk "NR==$kak_cursor_line { print; exit }" "$kak_buffile")
+        if [[ "$line" == *" ^|^ "* ]]; then
+            cmd=${line%" ^|^ "*}
+            type=${line##*" ^|^ "}
 
-    set-register "/" %reg{b}
-    run-in-fifo  %reg{1} %reg{2} true
+            if [[ ! "$type" =~ ^[a-z-]+$ ]]; then
+                printf "fail 'Current line is not a valid fifo entry'\n"
+                exit
+            fi
 
+            escaped_cmd=${cmd//\'/\'\"\'\"\'}
+            escaped_type=${type//\'/\'\"\'\"\'}
+
+            printf "run-in-fifo '%s' '%s' true\n" "$escaped_cmd" "$escaped_type"
+        else
+            printf "fail 'Current line is not a valid fifo entry'\n"
+        fi
+    }
 }
 define-command run-last-fifo -docstring 'Run last ran example' %{
     evaluate-commands %{
@@ -87,5 +98,3 @@ define-command run-last-fifo -docstring 'Run last ran example' %{
         run-in-fifo %opt{last_command} %opt{last_command_type} true
     }
 }
-
-
