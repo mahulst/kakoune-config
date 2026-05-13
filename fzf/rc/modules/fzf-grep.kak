@@ -26,15 +26,33 @@ Default value:
     cat {1}" \
 str fzf_grep_preview_command 'bat'
 
+define-command -hidden fzf-grep-open -params 1 %{ evaluate-commands %sh{
+    printf "%s\n" "$1" | perl -ne '
+        chomp;
+        my ($file, $line);
+        if (index($_, "\t") >= 0) {
+            ($file, $line) = split(/\t/, $_, 3);
+        } elsif (/^(.*):([0-9]+):/) {
+            ($file, $line) = ($1, $2);
+        } else {
+            exit 0;
+        }
+        $file =~ s/&/&&/g;
+        print "edit -existing %&${file}& ${line}\n";
+    '
+}}
+
 
 define-command -hidden fzf-grep %{ evaluate-commands %sh{
     if [ -z "$(command -v "${kak_opt_fzf_grep_command%% *}")" ]; then
         printf "%s\n" "echo -markup '{Information}''$kak_opt_fzf_grep_command'' is not installed. Falling back to ''grep'''"
         kak_opt_fzf_grep_command="grep"
     fi
+    fzf_delimiter=':'
     case $kak_opt_fzf_grep_command in
         (grep)      cmd="grep -RHn '' ." ;;
-        (rg)        cmd="rg --line-number --no-column --no-heading --color=never ''" ;;
+        (rg)        cmd="rg --line-number --no-column --no-heading --color=never --field-match-separator $'\\t' ''"
+                    fzf_delimiter='\t' ;;
         (grep*|rg*) cmd=$kak_opt_fzf_grep_command ;;
         (*)         items_executable=$(printf "%s\n" "$kak_opt_fzf_grep_command" | grep -o -E "[[:alpha:]]+" | head -1)
                     printf "%s\n" "echo -markup %{{Information}Warning: '$items_executable' is not supported by fzf.kak.}"
@@ -67,7 +85,7 @@ ${kak_opt_fzf_vertical_map:-ctrl-v}: open search result in vertical split"
 
     printf "%s\n" "info -title '${title}' '${message}${tmux_keybindings}'"
     [ -n "${kak_client_env_TMUX}" ] && additional_flags="--expect ${kak_opt_fzf_vertical_map:-ctrl-v} --expect ${kak_opt_fzf_horizontal_map:-ctrl-s}"
-    printf "%s\n" "fzf -kak-cmd %{evaluate-commands} ${preview_cmd} -fzf-args %{--expect ${kak_opt_fzf_window_map:-ctrl-w} $additional_flags  --delimiter=':' -n'3..'} -items-cmd %{$cmd} -filter %{sed -E 's/([^:]+):([^:]+):.*/edit -existing \1; execute-keys \2gvc/'}"
+    printf "%s\n" "fzf -kak-cmd %{fzf-grep-open} ${preview_cmd} -fzf-args %{--expect ${kak_opt_fzf_window_map:-ctrl-w} $additional_flags --delimiter='${fzf_delimiter}' -n'3..'} -items-cmd %{$cmd}"
 }}
 
 §

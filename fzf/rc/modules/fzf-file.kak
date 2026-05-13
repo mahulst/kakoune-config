@@ -72,7 +72,14 @@ define-command -hidden fzf-file -params 0..2 %{ evaluate-commands %sh{
         # Since we cd-ed into search dir in $cmd, prefix the $search_dir path after fzf returns the results by using -filter switch of fzf.
         # Kakoune either needs an absolute path or path relative to its pwd to edit a file. Since the pwd of $cmd and kakoune now differ,
         # we cannot use a relative path, so we construct the absolute path by prefixing the $search_dir to the file outputted by fzf.
-        maybe_filter_param=$(printf "%s %s" "-filter" "%{perl -pe \"if (/${kak_opt_fzf_window_map:-ctrl-w}|${kak_opt_fzf_vertical_map:-ctrl-v}|${kak_opt_fzf_horizontal_map:-ctrl-s}|^$/) {} else {print \\\"$search_dir/\\\"\"}}")
+        maybe_filter_param=$(printf "%s %s" "-filter" "%{perl -pe \"if (/${kak_opt_fzf_window_map:-ctrl-w}|${kak_opt_fzf_vertical_map:-ctrl-v}|${kak_opt_fzf_horizontal_map:-ctrl-s}|^$/) {} else {
+            \$_ = \\\"$search_dir/\$_\\\";
+            s/:/\\\\:/g;
+        }\"}")
+    else
+        maybe_filter_param=$(printf "%s %s" "-filter" "%{perl -pe \"if (/${kak_opt_fzf_window_map:-ctrl-w}|${kak_opt_fzf_vertical_map:-ctrl-v}|${kak_opt_fzf_horizontal_map:-ctrl-s}|^$/) {} else {
+            s/:/\\\\:/g;
+        }\"}")
     fi
     message="Open single or multiple files.
 <ret>: open file in new buffer.
