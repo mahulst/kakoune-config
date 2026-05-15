@@ -83,7 +83,6 @@ define-command color-faces %{
 
     add-highlighter buffer/face-colors ranges face_colors
 }
-evaluate-commands %sh{kak-popup init}
 source ~/.config/kak/fifo.kak
 source ~/.config/kak/switch-case.kak
 source ~/.config/kak/servers.kak
