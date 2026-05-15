@@ -89,6 +89,7 @@ source ~/.config/kak/servers.kak
 source ~/.config/kak/cargo.kak
 source ~/.config/kak/ls.kak
 source ~/.config/kak/ts.kak
+source ~/.config/kak/moon.kak
 source ~/.config/kak/odin.kak
 source ~/.config/kak/yank.kak
 source ~/.config/kak/harpoon.kak

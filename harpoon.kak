@@ -161,5 +161,4 @@ define-command stabR -override -docstring %{ save a meat to marks } %{
 
 map global user m ":stab<ret>" -docstring "mark location"
 map global user p ":peek<ret>" -docstring "view marks"
-map global user M ":lick<ret>" -docstring "go to location"
 
