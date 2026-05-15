@@ -409,6 +409,7 @@ define-command -hidden kaktree--ret-action %{ evaluate-commands -save-regs 'a' %
     }
 }}
 
+
 define-command -hidden kaktree--alt-ret-action %{ evaluate-commands -save-regs 'a' %{
     try %{
         set-register a %opt{kaktree_dir_icon_close}
