@@ -30,12 +30,15 @@ define-command yank-diff-registers -docstring 'open diff for registers a and b' 
         printf '%s' "${kak_main_reg_a-}" >"$tmp_a"
         printf '%s' "${kak_main_reg_b-}" >"$tmp_b"
 
-        diff -u -L 'a' -L 'b' "$tmp_a" "$tmp_b" >"$tmp_out"
+        diff -u -U 1000000 -L 'a' -L 'b' "$tmp_a" "$tmp_b" >"$tmp_out"
         status=$?
         if [ "$status" -gt 1 ]; then
             rm -f "$tmp_a" "$tmp_b" "$tmp_out"
             printf "fail 'diff failed'\n"
             exit 1
+        fi
+        if [ "$status" -eq 0 ]; then
+            printf 'no diff found\n' >"$tmp_out"
         fi
 
         cat <<EOF
