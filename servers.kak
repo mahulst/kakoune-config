@@ -259,12 +259,13 @@ hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
         # vue = { hybridMode = false }
         [typescript-language-server]
         filetypes = ["vue"]
-        root_globs = ["package.json", "tsconfig.json", "jsconfig.json", ".git", ".hg"]
+        root_globs = ["package.json", "tsconfig.json", "jsconfig.json", ".git"]
         args = ["--stdio"]
         settings_section = "_"
 
         [typescript-language-server.settings._.tsserver]
-        path = "node_modules/typescript/lib/"
+        path = "./node_modules/typescript/lib/tsserver.js"
+        fallbackPath = "/Users/mahulst/.nvm/versions/node/v24.13.1/lib/node_modules/@vue/language-server/node_modules/typescript/lib/tsserver.js"
 
         [[typescript-language-server.settings._.plugins]]
         name = "@vue/typescript-plugin"
@@ -296,9 +297,18 @@ hook -group lsp-filetype-javascript global BufSetOption filetype=(?:javascript|t
         [typescript-language-server]
         filetypes = ["typescript"]
         root_globs = ["package.json", "tsconfig.json", "jsconfig.json", ".git", ".hg"]
-        args = ["--stdio"]
+        command = "pnpm"
+        args = [
+            "exec",
+            "typescript-language-server",
+            "--stdio",
+        ]
         settings_section = "_"
         [typescript-language-server.settings._]
+        maxTsServerMemory = 8192
+        [typescript-language-server.settings._.tsserver]
+        path = "./node_modules/typescript/lib/tsserver.js"
+        fallbackPath = "/Users/mahulst/.nvm/versions/node/v24.13.1/lib/node_modules/@vue/language-server/node_modules/typescript/lib/tsserver.js"
         # quotePreference = "double"
         # typescript.format.semicolons = "insert"
     }
