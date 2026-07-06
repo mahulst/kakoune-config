@@ -259,7 +259,7 @@ hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
         # vue = { hybridMode = false }
         [typescript-language-server]
         filetypes = ["vue"]
-        root_globs = ["package.json", "tsconfig.json", "jsconfig.json", ".git"]
+        root_globs = [".git", "pnpm-workspace.yaml"]
         args = ["--stdio"]
         settings_section = "_"
 
@@ -296,13 +296,24 @@ hook -group lsp-filetype-javascript global BufSetOption filetype=(?:javascript|t
     set-option buffer lsp_servers %{
         [typescript-language-server]
         filetypes = ["typescript"]
-        root_globs = ["package.json", "tsconfig.json", "jsconfig.json", ".git", ".hg"]
+        root_globs = [".git", "pnpm-workspace.yaml"]
+        # command = "./node_modules/.bin/tsgo"
+        # args = [
+        #     "--lsp",
+        #     "--stdio"
+        # ]
+        # command = "./node_modules/typescript-7/bin/tsc"
+        # args = [
+        #     "--lsp",
+        #     "--stdio"
+        # ]
         command = "pnpm"
         args = [
             "exec",
             "typescript-language-server",
             "--stdio",
         ]
+
         settings_section = "_"
         [typescript-language-server.settings._]
         maxTsServerMemory = 8192
