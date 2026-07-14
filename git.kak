@@ -12,8 +12,12 @@ map global git A ':git add<ret>' -docstring 'git add file'
 
 # Main hook (git branch update, gutters)
 hook global -group git-main-hook NormalIdle .* %{
-  # Update git diff column signs
-  try %{ git update-diff }
+  # Update git diff column signs (skip the *git-status* porcelain buffer,
+  # whose idle refresh would otherwise clear its help info box)
+  try %{
+    evaluate-commands %sh{ [ "$kak_opt_filetype" = "git-porcelain-status" ] && echo fail }
+    git update-diff
+  }
    # Update branch name
 }
 
@@ -60,7 +64,7 @@ map global git D ':git-diff-current-line-commit<ret>' -docstring 'diff of commit
 map global git l ':git log<ret>' -docstring 'log'
 map global git b ':git blame<ret>' -docstring 'blame'
 map global git B ':git blame-jump<ret>' -docstring 'blame jump'
-map global git s ':git status<ret>' -docstring 'status'
+map global git s ':git-status<ret>' -docstring 'status (porcelain)'
 map global git d ':git diff<ret>' -docstring 'diff'
 map global git c ':git-blame-current-line<ret>' -docstring 'blame current line'
 

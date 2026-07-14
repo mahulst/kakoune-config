@@ -99,9 +99,26 @@ EOF
     }
 }
 
+define-command copy-branch-name %{
+    evaluate-commands -save-regs '"' %sh{
+        branch=$(cd "$(dirname "$kak_buffile")" && git rev-parse --abbrev-ref HEAD 2>/dev/null)
+        if [ -z "$branch" ]; then
+            echo "fail 'not in a git repository'"
+        else
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                printf '%s' "$branch" | pbcopy
+            else
+                printf '%s' "$branch" | xclip -selection clipboard
+            fi
+            echo "echo -markup '{info}Branch name copied to clipboard: $branch'"
+        fi
+    }
+}
+
 declare-user-mode yank
 map global user -docstring 'yank mode' y ':enter-user-mode yank<ret>'
 map global yank -docstring 'current file path' p ':copy-file-path<ret>'
 map global yank -docstring 'current file name' f ':copy-file-name<ret>'
+map global yank -docstring 'current git branch name' b ':copy-branch-name<ret>'
 map global yank -docstring 'diff registers a and b' d ':yank-diff-registers<ret>'
 map global yank -docstring 'diff selection and clipboard' c ':yank-diff-selection-clipboard<ret>'

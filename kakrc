@@ -2,7 +2,7 @@
 hook global WinSetOption filetype %{
     echo -debug "Filetype changed to: %val{filetype}"
 }
-map global user d ':buffer *debug* <ret>' -docstring 'open debug buffer'
+map global user D ':buffer *debug* <ret>' -docstring 'open debug buffer'
 
 hook -group lsp-language-id global BufCreate .*[.]tsx %{
     hook -group lsp-language-id buffer BufSetOption filetype=typescript %{
@@ -99,6 +99,10 @@ source ~/.config/kak/kaktree/rc/kaktree.kak
 source ~/.config/kak/clipboard.kak
 source ~/.config/kak/web.kak
 source ~/.config/kak/git.kak
+source ~/.config/kak/git-shell.kak
+source ~/.config/kak/git-commit.kak
+source ~/.config/kak/git-status.kak
+require-module git-status
 source ~/.config/kak/jest.kak
 source ~/.config/kak/c.kak
 source ~/.config/kak/godot.kak
@@ -115,6 +119,7 @@ source ~/.config/kak/jai.kak
 source ~/.config/kak/tasks.kak
 source ~/.config/kak/timesheet.kak
 source ~/.config/kak/http.kak
+source ~/.config/kak/hunk.kak
 source ~/.config/kak/vue.kak
 hook global BufOpenFile .* expandtab
 hook global BufNewFile  .* expandtab
@@ -173,6 +178,12 @@ hook global PromptIdle '' update_hidden_selections_indicator_ranges
 # add-highlighter global/hidden_selections_indicator ref hidden_selections_indicator_ranges
 add-highlighter global/hidden_selections_indicator replace-ranges hidden_selections_indicator_ranges #remove duplicate cursors with esc 
 map global normal <esc> ';,'
+
+define-command duplicate-line -docstring 'duplicate current line(s) without touching registers' %{
+    echo -debug "duplicate-line fired"
+    execute-keys -save-regs 'z' 'x"zy;"zp'
+}
+map global user d ':duplicate-line<ret>' -docstring 'duplicate line'
 
 colorscheme catppuccin_macchiato
 set-option global ui_options terminal_enable_mouse=false
@@ -355,6 +366,7 @@ declare-user-mode grep-mode
 map -docstring "Grep" global user G ':enter-user-mode grep-mode<ret>'
 map -docstring "grep (all files)" global grep-mode g ':grep-smart<ret>'
 map -docstring "grep (same filetype)" global grep-mode f ':grep-smart-filetype<ret>'
+map -docstring "grep (closest package.json)" global grep-mode p ':grep-smart-package<ret>'
 
 define-command -override add-surrounding-pair -params 2 -docstring 'add surrounding pairs left and right to selection' %{
   evaluate-commands -no-hooks -save-regs '"' %{
