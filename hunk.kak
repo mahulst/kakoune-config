@@ -13,6 +13,19 @@
 # --- Faces ---------------------------------------------------------------
 set-face global HunkComment blue,default
 set-face global HunkCommentLine default,default@comment
+set-face global HunkDocsTitle blue,default+b
+set-face global HunkDocsLine green,default
+set-face global HunkDocsMeta comment
+
+# Highlighting for the *hunk-comments* docs buffer.
+hook global WinSetOption filetype=hunk-comments %{
+    add-highlighter window/hunk-docs group
+    add-highlighter window/hunk-docs/line regex ^(L\d+:) 1:HunkDocsLine
+    add-highlighter window/hunk-docs/meta regex ^(•[^\n]*) 1:HunkDocsMeta
+    hook -once -always window WinSetOption filetype=.* %{
+        remove-highlighter window/hunk-docs
+    }
+}
 
 # --- Options -------------------------------------------------------------
 # Gutter flag symbol shown next to lines that carry a Hunk comment.
@@ -149,6 +162,27 @@ EOF
     }
 }
 
+# --- Docs render helper ---------------------------------------------------
+# Show the given text in the *hunk-comments* scratch buffer, in the docs
+# client when one exists (falls back to the current client otherwise).
+define-command -hidden hunk-render-docs -params 2 %{
+    evaluate-commands %sh{
+        title="$1"
+        tmp=$(mktemp "${TMPDIR:-/tmp}/hunk-comments.XXXXXX")
+        printf '%s\n\n%s\n' "$title" "$2" > "$tmp"
+        client="$kak_opt_docsclient"
+        [ -z "$client" ] && client="$kak_client"
+        printf "evaluate-commands -client %%{%s} %%{\n" "$client"
+        printf "  edit! -scratch *hunk-comments*\n"
+        printf "  set-option buffer readonly false\n"
+        printf "  execute-keys '%%%%|cat %s<ret>'\n" "$tmp"
+        printf "  set-option buffer readonly true\n"
+        printf "  set-option buffer filetype hunk-comments\n"
+        printf "}\n"
+        ( sleep 2; rm -f "$tmp" ) >/dev/null 2>&1 &
+    }
+}
+
 # --- Docs window: show comments for the current line ----------------------
 define-command hunk-show-comments -docstring 'show Hunk comments for the current line in the docs window' %{
     evaluate-commands %sh{
@@ -201,7 +235,7 @@ define-command hunk-show-comments -docstring 'show Hunk comments for the current
         fi
 
         escaped=$(printf '%s' "$body" | sed "s/'/''/g")
-        printf "info -title 'Hunk comments (line %s)' '%s'\n" "$line" "$escaped"
+        printf "hunk-render-docs 'Hunk comments (line %s)' '%s'\n" "$line" "$escaped"
     }
 }
 
@@ -236,7 +270,7 @@ define-command hunk-list-comments -docstring 'list all Hunk comments for the cur
         [ -z "$body" ] && { echo "info 'No Hunk comments.'"; exit; }
 
         escaped=$(printf '%s' "$body" | sed "s/'/''/g")
-        printf "info -title 'Hunk comments (%s)' '%s'\n" "$relpath" "$escaped"
+        printf "hunk-render-docs 'Hunk comments (%s)' '%s'\n" "$relpath" "$escaped"
     }
 }
 
