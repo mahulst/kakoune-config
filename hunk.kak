@@ -22,8 +22,10 @@ hook global WinSetOption filetype=hunk-comments %{
     add-highlighter window/hunk-docs group
     add-highlighter window/hunk-docs/line regex ^(L\d+:) 1:HunkDocsLine
     add-highlighter window/hunk-docs/meta regex ^(•[^\n]*) 1:HunkDocsMeta
+    map buffer normal <ret> ':hunk-docs-goto<ret>' -docstring 'go to comment source line'
     hook -once -always window WinSetOption filetype=.* %{
         remove-highlighter window/hunk-docs
+        unmap buffer normal <ret> ':hunk-docs-goto<ret>'
     }
 }
 
@@ -38,6 +40,10 @@ declare-option -hidden line-specs hunk_comment_flags
 # "line<tab>count" pairs. Lets navigation/docs commands work without shelling
 # out again.
 declare-option -hidden str hunk_comment_lines
+
+# Absolute path of the source file whose comments are shown in the
+# *hunk-comments* docs buffer. Used to jump back on <ret>.
+declare-option -hidden str hunk_docs_source_file
 
 # --- Highlighter ---------------------------------------------------------
 hook global WinCreate .* %{
@@ -84,19 +90,25 @@ define-command hunk-comment -docstring 'add a Hunk review comment on the current
 
             relpath="${file#"$repo"/}"
 
+            # Reload the session's diff first so the current line is inside an
+            # up-to-date hunk (equivalent to pressing "r" in the hunk TUI).
+            hunk session reload "$sid" -- diff >/dev/null 2>&1
+
             out=$(hunk session comment add "$sid" \
                 --file "$relpath" --new-line "$line" \
                 --summary "$summary" --focus 2>&1)
-            status=$?
 
-            if [ "$status" -ne 0 ]; then
-                msg=$(printf '%s' "$out" | sed "s/'/''/g")
-                echo "fail 'hunk: $msg'"
-                exit
-            fi
-
-            echo "info 'Hunk comment added on line $line'"
-            echo "hunk-refresh"
+            # hunk exits 0 even on error, so detect success by output text.
+            case "$out" in
+                "Added live comment"*)
+                    echo "info 'Hunk comment added on line $line'"
+                    echo "hunk-refresh"
+                    ;;
+                *)
+                    msg=$(printf '%s' "$out" | sed "s/'/''/g")
+                    echo "fail 'hunk: $msg'"
+                    ;;
+            esac
         }
     }
 }
@@ -116,6 +128,10 @@ define-command hunk-refresh -docstring 'refresh Hunk review state for the curren
             [ .sessions[] | select(.repoRoot == $r) ]
             | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
         [ -z "$sid" ] && exit
+
+        # Reload the session's diff so newly-changed lines become commentable
+        # (equivalent to pressing "r" in the hunk TUI).
+        hunk session reload "$sid" -- diff >/dev/null 2>&1
 
         json=$(hunk session comment list "$sid" --file "$relpath" --type all --json 2>/dev/null)
         [ $? -ne 0 ] && exit
@@ -165,21 +181,43 @@ EOF
 # --- Docs render helper ---------------------------------------------------
 # Show the given text in the *hunk-comments* scratch buffer, in the docs
 # client when one exists (falls back to the current client otherwise).
-define-command -hidden hunk-render-docs -params 2 %{
+define-command -hidden hunk-render-docs -params 3 %{
     evaluate-commands %sh{
         title="$1"
+        srcfile="$3"
         tmp=$(mktemp "${TMPDIR:-/tmp}/hunk-comments.XXXXXX")
         printf '%s\n\n%s\n' "$title" "$2" > "$tmp"
         client="$kak_opt_docsclient"
         [ -z "$client" ] && client="$kak_client"
+        srcesc=$(printf '%s' "$srcfile" | sed "s/'/''/g")
         printf "evaluate-commands -client %%{%s} %%{\n" "$client"
         printf "  edit! -scratch *hunk-comments*\n"
         printf "  set-option buffer readonly false\n"
         printf "  execute-keys '%%%%|cat %s<ret>'\n" "$tmp"
         printf "  set-option buffer readonly true\n"
         printf "  set-option buffer filetype hunk-comments\n"
+        printf "  set-option buffer hunk_docs_source_file '%s'\n" "$srcesc"
         printf "}\n"
         ( sleep 2; rm -f "$tmp" ) >/dev/null 2>&1 &
+    }
+}
+
+# Jump from a "L<n>: ..." line in the docs buffer to that line in the source
+# file, in the jump client.
+define-command -hidden hunk-docs-goto %{
+    evaluate-commands -save-regs 'a' %{
+        # Grab the current line text and parse "L<n>:".
+        execute-keys 'x'
+        set-register a %val{selection}
+        execute-keys 'gh'
+        evaluate-commands %sh{
+            ln=$(printf '%s' "$kak_reg_a" | sed -n 's/^[[:space:]]*L\([0-9]\{1,\}\):.*/\1/p')
+            [ -z "$ln" ] && { echo "fail 'not a comment line'"; exit; }
+            srcfile="$kak_opt_hunk_docs_source_file"
+            [ -z "$srcfile" ] && { echo "fail 'no source file for this docs buffer'"; exit; }
+            srcesc=$(printf '%s' "$srcfile" | sed "s/'/''/g")
+            printf "evaluate-commands -try-client %%{%s} %%{ edit -existing '%s' %s }\n" "$kak_opt_jumpclient" "$srcesc" "$ln"
+        }
     }
 }
 
@@ -235,7 +273,8 @@ define-command hunk-show-comments -docstring 'show Hunk comments for the current
         fi
 
         escaped=$(printf '%s' "$body" | sed "s/'/''/g")
-        printf "hunk-render-docs 'Hunk comments (line %s)' '%s'\n" "$line" "$escaped"
+        fileesc=$(printf '%s' "$file" | sed "s/'/''/g")
+        printf "hunk-render-docs 'Hunk comments (line %s)' '%s' '%s'\n" "$line" "$escaped" "$fileesc"
     }
 }
 
@@ -270,7 +309,8 @@ define-command hunk-list-comments -docstring 'list all Hunk comments for the cur
         [ -z "$body" ] && { echo "info 'No Hunk comments.'"; exit; }
 
         escaped=$(printf '%s' "$body" | sed "s/'/''/g")
-        printf "hunk-render-docs 'Hunk comments (%s)' '%s'\n" "$relpath" "$escaped"
+        fileesc=$(printf '%s' "$file" | sed "s/'/''/g")
+        printf "hunk-render-docs 'Hunk comments (%s)' '%s' '%s'\n" "$relpath" "$escaped" "$fileesc"
     }
 }
 
