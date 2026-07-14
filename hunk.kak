@@ -31,7 +31,7 @@ hook global WinSetOption filetype=hunk-comments %{
 
 # --- Options -------------------------------------------------------------
 # Gutter flag symbol shown next to lines that carry a Hunk comment.
-declare-option -docstring 'gutter symbol for Hunk-commented lines' str hunk_flag_symbol '󰆉'
+declare-option -docstring 'gutter symbol for Hunk-commented lines' str hunk_flag_symbol '!'
 
 # Per-buffer line-specs for the flag-lines highlighter (line|face|text ...).
 declare-option -hidden line-specs hunk_comment_flags
@@ -159,7 +159,7 @@ define-command hunk-refresh -docstring 'refresh Hunk review state for the curren
         while IFS='	' read -r ln cnt; do
             [ -z "$ln" ] && continue
             label="$symbol"
-            [ "$cnt" -gt 1 ] 2>/dev/null && label="${symbol}${cnt}"
+            [ "$cnt" -gt 1 ] 2>/dev/null && label="${symbol}${symbol}"
             specs="$specs '${ln}|{HunkComment}${label}'"
         done <<EOF
 $pairs
