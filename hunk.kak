@@ -59,15 +59,19 @@ define-command hunk-comment -docstring 'add a Hunk review comment on the current
                 exit
             fi
 
-            # Fail early with a friendly message if no session matches.
-            if ! hunk session get --repo "$repo" --json >/dev/null 2>&1; then
+            # Resolve the newest active session for this repo. --repo fails
+            # when multiple sessions match, and hunk exits 0 on error.
+            sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
+                [ .sessions[] | select(.repoRoot == $r) ]
+                | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
+            if [ -z "$sid" ]; then
                 echo "fail 'no active Hunk review for this repository'"
                 exit
             fi
 
             relpath="${file#"$repo"/}"
 
-            out=$(hunk session comment add --repo "$repo" \
+            out=$(hunk session comment add "$sid" \
                 --file "$relpath" --new-line "$line" \
                 --summary "$summary" --focus 2>&1)
             status=$?
@@ -95,7 +99,12 @@ define-command hunk-refresh -docstring 'refresh Hunk review state for the curren
 
         relpath="${file#"$repo"/}"
 
-        json=$(hunk session comment list --repo "$repo" --file "$relpath" --type all --json 2>/dev/null)
+        sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
+            [ .sessions[] | select(.repoRoot == $r) ]
+            | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
+        [ -z "$sid" ] && exit
+
+        json=$(hunk session comment list "$sid" --file "$relpath" --type all --json 2>/dev/null)
         [ $? -ne 0 ] && exit
         [ -z "$json" ] && exit
 
@@ -159,7 +168,15 @@ define-command hunk-show-comments -docstring 'show Hunk comments for the current
 
         relpath="${file#"$repo"/}"
 
-        json=$(hunk session comment list --repo "$repo" --file "$relpath" --type all --json 2>/dev/null)
+        sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
+            [ .sessions[] | select(.repoRoot == $r) ]
+            | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
+        if [ -z "$sid" ]; then
+            echo "info 'No Hunk comments.'"
+            exit
+        fi
+
+        json=$(hunk session comment list "$sid" --file "$relpath" --type all --json 2>/dev/null)
         if [ $? -ne 0 ] || [ -z "$json" ]; then
             echo "info 'No Hunk comments.'"
             exit
@@ -198,7 +215,11 @@ define-command hunk-list-comments -docstring 'list all Hunk comments for the cur
         [ -z "$repo" ] && { echo "info 'No Hunk comments.'"; exit; }
 
         relpath="${file#"$repo"/}"
-        json=$(hunk session comment list --repo "$repo" --file "$relpath" --type all --json 2>/dev/null)
+        sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
+            [ .sessions[] | select(.repoRoot == $r) ]
+            | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
+        [ -z "$sid" ] && { echo "info 'No Hunk comments.'"; exit; }
+        json=$(hunk session comment list "$sid" --file "$relpath" --type all --json 2>/dev/null)
         [ $? -ne 0 ] && { echo "info 'No Hunk comments.'"; exit; }
 
         body=$(printf '%s' "$json" | jq -r --arg f "$relpath" '
