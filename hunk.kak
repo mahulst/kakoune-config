@@ -20,12 +20,16 @@ set-face global HunkDocsMeta comment
 # Highlighting for the *hunk-comments* docs buffer.
 hook global WinSetOption filetype=hunk-comments %{
     add-highlighter window/hunk-docs group
-    add-highlighter window/hunk-docs/line regex ^(L\d+:) 1:HunkDocsLine
+    add-highlighter window/hunk-docs/header regex ^(#\h[^\n]*) 1:HunkDocsTitle
+    add-highlighter window/hunk-docs/line regex ^[^:\n]*:(\d+): 1:HunkDocsLine
+    add-highlighter window/hunk-docs/lline regex ^(L\d+:) 1:HunkDocsLine
     add-highlighter window/hunk-docs/meta regex ^(•[^\n]*) 1:HunkDocsMeta
     map buffer normal <ret> ':hunk-docs-goto<ret>' -docstring 'go to comment source line'
+    map buffer user x ':hunk-clear-line<ret>' -docstring 'clear comment on this line'
     hook -once -always window WinSetOption filetype=.* %{
         remove-highlighter window/hunk-docs
         unmap buffer normal <ret> ':hunk-docs-goto<ret>'
+        unmap buffer user x ':hunk-clear-line<ret>'
     }
 }
 
@@ -202,21 +206,99 @@ define-command -hidden hunk-render-docs -params 3 %{
     }
 }
 
-# Jump from a "L<n>: ..." line in the docs buffer to that line in the source
-# file, in the jump client.
+# Jump from a comment line in the docs buffer to its source line, in the jump
+# client. Supports two line formats:
+#   <relpath>:<n>: text   -> jump to repo-root/<relpath> at line n
+#   L<n>: text            -> jump to the stored base file at line n
+# hunk_docs_source_file holds either the repo root (list view) or a file
+# (single-line view); we resolve accordingly.
 define-command -hidden hunk-docs-goto %{
     evaluate-commands -save-regs 'a' %{
-        # Grab the current line text and parse "L<n>:".
         execute-keys 'x'
         set-register a %val{selection}
         execute-keys 'gh'
         evaluate-commands %sh{
-            ln=$(printf '%s' "$kak_reg_a" | sed -n 's/^[[:space:]]*L\([0-9]\{1,\}\):.*/\1/p')
-            [ -z "$ln" ] && { echo "fail 'not a comment line'"; exit; }
-            srcfile="$kak_opt_hunk_docs_source_file"
-            [ -z "$srcfile" ] && { echo "fail 'no source file for this docs buffer'"; exit; }
-            srcesc=$(printf '%s' "$srcfile" | sed "s/'/''/g")
-            printf "evaluate-commands -try-client %%{%s} %%{ edit -existing '%s' %s }\n" "$kak_opt_jumpclient" "$srcesc" "$ln"
+            base="$kak_opt_hunk_docs_source_file"
+            [ -z "$base" ] && { echo "fail 'no source for this docs buffer'"; exit; }
+
+            linetext="$kak_reg_a"
+            # Try "<relpath>:<n>: ..." first.
+            rel=$(printf '%s' "$linetext" | sed -n 's/^\([^:]*\):\([0-9]\{1,\}\):.*/\1/p')
+            ln=$(printf '%s' "$linetext" | sed -n 's/^[^:]*:\([0-9]\{1,\}\):.*/\1/p')
+
+            if [ -n "$rel" ] && [ -n "$ln" ]; then
+                if [ -d "$base" ]; then
+                    target="$base/$rel"
+                else
+                    target="$rel"
+                fi
+            else
+                # Fallback: "L<n>: ..." using the stored base file.
+                ln=$(printf '%s' "$linetext" | sed -n 's/^[[:space:]]*L\([0-9]\{1,\}\):.*/\1/p')
+                [ -z "$ln" ] && { echo "fail 'not a comment line'"; exit; }
+                target="$base"
+            fi
+
+            tgtesc=$(printf '%s' "$target" | sed "s/'/''/g")
+            printf "evaluate-commands -try-client %%{%s} %%{ edit -existing '%s' %s }\n" "$kak_opt_jumpclient" "$tgtesc" "$ln"
+        }
+    }
+}
+
+# Delete the comment(s) on the docs line under the cursor. Parses the
+# "<relpath>:<n>: text" prefix, resolves matching noteId(s) from the session
+# and removes them.
+define-command -hidden hunk-clear-line %{
+    evaluate-commands -save-regs 'a' %{
+        execute-keys 'x'
+        set-register a %val{selection}
+        execute-keys 'gh'
+        evaluate-commands %sh{
+            base="$kak_opt_hunk_docs_source_file"
+            [ -z "$base" ] && { echo "fail 'no source for this docs buffer'"; exit; }
+
+            linetext="$kak_reg_a"
+            rel=$(printf '%s' "$linetext" | sed -n 's/^\([^:]*\):\([0-9]\{1,\}\):.*/\1/p')
+            ln=$(printf '%s' "$linetext" | sed -n 's/^[^:]*:\([0-9]\{1,\}\):.*/\1/p')
+            text=$(printf '%s' "$linetext" | sed -n 's/^[^:]*:[0-9]\{1,\}: \(.*\)/\1/p')
+
+            if [ -z "$rel" ] || [ -z "$ln" ]; then
+                # Single-line "L<n>:" view: base is the file, rel derived below.
+                ln=$(printf '%s' "$linetext" | sed -n 's/^[[:space:]]*L\([0-9]\{1,\}\): \(.*\)/\1/p')
+                text=$(printf '%s' "$linetext" | sed -n 's/^[[:space:]]*L[0-9]\{1,\}: \(.*\)/\1/p')
+                [ -z "$ln" ] && { echo "fail 'not a comment line'"; exit; }
+            fi
+
+            if [ -d "$base" ]; then
+                repo="$base"
+            else
+                repo=$(cd "$(dirname "$base")" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)
+                rel="${base#"$repo"/}"
+            fi
+
+            sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
+                [ .sessions[] | select(.repoRoot == $r) ]
+                | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
+            [ -z "$sid" ] && { echo "fail 'no active Hunk review for this repository'"; exit; }
+
+            json=$(hunk session comment list "$sid" --type all --json 2>/dev/null)
+            ids=$(printf '%s' "$json" | jq -r \
+                --arg f "$rel" --argjson l "$ln" --arg t "$text" '
+                .comments[]
+                | select(.filePath == $f)
+                | select((if .line != null then .line elif .newRange != null then .newRange[0] else null end) == $l)
+                | select(((.summary // .body // "")) == $t)
+                | (.noteId // .commentId // .id // empty)' 2>/dev/null)
+
+            [ -z "$ids" ] && { echo "fail 'no matching Hunk comment on this line'"; exit; }
+
+            n=0
+            for id in $ids; do
+                hunk session comment rm "$sid" "$id" >/dev/null 2>&1 && n=$((n+1))
+            done
+
+            echo "info 'Removed $n Hunk comment(s)'"
+            echo "hunk-list-comments"
         }
     }
 }
@@ -278,8 +360,8 @@ define-command hunk-show-comments -docstring 'show Hunk comments for the current
     }
 }
 
-# --- List all comments for the current file (docs window) -----------------
-define-command hunk-list-comments -docstring 'list all Hunk comments for the current file' %{
+# --- List all comments for the whole session (docs window) ----------------
+define-command hunk-list-comments -docstring 'list all Hunk comments for the session' %{
     evaluate-commands %sh{
         file="$kak_buffile"
         [ -z "$file" ] && { echo "info 'No Hunk comments.'"; exit; }
@@ -287,30 +369,37 @@ define-command hunk-list-comments -docstring 'list all Hunk comments for the cur
         repo=$(cd "$(dirname "$file")" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)
         [ -z "$repo" ] && { echo "info 'No Hunk comments.'"; exit; }
 
-        relpath="${file#"$repo"/}"
         sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
             [ .sessions[] | select(.repoRoot == $r) ]
             | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
         [ -z "$sid" ] && { echo "info 'No Hunk comments.'"; exit; }
-        json=$(hunk session comment list "$sid" --file "$relpath" --type all --json 2>/dev/null)
+        json=$(hunk session comment list "$sid" --type all --json 2>/dev/null)
         [ $? -ne 0 ] && { echo "info 'No Hunk comments.'"; exit; }
 
-        body=$(printf '%s' "$json" | jq -r --arg f "$relpath" '
+        # Group all comments by file, emit "<relpath>:<line>: text" lines with
+        # a blank-line-separated header per file. The <relpath>:<line> prefix
+        # lets <ret> jump to the right file and line.
+        body=$(printf '%s' "$json" | jq -r '
             [ .comments[]
-              | select(.filePath == $f)
-              | { line: (if .line != null then .line elif .newRange != null then .newRange[0] else null end),
+              | { file: .filePath,
+                  line: (if .line != null then .line elif .newRange != null then .newRange[0] else null end),
                   text: (.summary // .body // "") }
-              | select(.line != null) ]
-            | sort_by(.line)
-            | if length == 0 then "" else
-                map("L\(.line): \(.text)") | join("\n")
-              end' 2>/dev/null)
+              | select(.line != null and .file != null) ]
+            | group_by(.file)
+            | map(
+                .[0].file as $f
+                | "# \($f)\n" +
+                  ( sort_by(.line)
+                    | map("\($f):\(.line): \(.text)")
+                    | join("\n") )
+              )
+            | join("\n\n")' 2>/dev/null)
 
         [ -z "$body" ] && { echo "info 'No Hunk comments.'"; exit; }
 
         escaped=$(printf '%s' "$body" | sed "s/'/''/g")
-        fileesc=$(printf '%s' "$file" | sed "s/'/''/g")
-        printf "hunk-render-docs 'Hunk comments (%s)' '%s' '%s'\n" "$relpath" "$escaped" "$fileesc"
+        repoesc=$(printf '%s' "$repo" | sed "s/'/''/g")
+        printf "hunk-render-docs 'Hunk comments (session)' '%s' '%s'\n" "$escaped" "$repoesc"
     }
 }
 
@@ -348,6 +437,42 @@ define-command -hidden hunk-jump -params 1 %{
 define-command hunk-next-comment -docstring 'jump to next Hunk-commented line' %{ hunk-jump next }
 define-command hunk-prev-comment -docstring 'jump to previous Hunk-commented line' %{ hunk-jump prev }
 
+# --- Clear: delete all comments for the session ---------------------------
+define-command hunk-clear-comments -docstring 'delete ALL Hunk comments for the session' %{
+    prompt 'Delete ALL Hunk comments? (type yes): ' %{
+        evaluate-commands %sh{
+            [ "$kak_text" != "yes" ] && { echo "info 'Cancelled.'"; exit; }
+
+            file="$kak_buffile"
+            repo=$(cd "$(dirname "$file")" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)
+            # Fallback for the *hunk-comments* scratch buffer, which has no
+            # backing file: its stored base is the repo root.
+            if [ -z "$repo" ]; then
+                base="$kak_opt_hunk_docs_source_file"
+                [ -d "$base" ] && repo="$base"
+            fi
+            [ -z "$repo" ] && { echo "fail 'not in a git repository'"; exit; }
+
+            sid=$(hunk session list --json 2>/dev/null | jq -r --arg r "$repo" '
+                [ .sessions[] | select(.repoRoot == $r) ]
+                | sort_by(.launchedAt) | reverse | .[0].sessionId // empty' 2>/dev/null)
+            [ -z "$sid" ] && { echo "fail 'no active Hunk review for this repository'"; exit; }
+
+            out=$(hunk session comment clear "$sid" --all --yes 2>&1)
+            case "$out" in
+                *[Cc]leared*|*[Rr]emoved*)
+                    echo "info 'All Hunk comments cleared'"
+                    echo "hunk-refresh"
+                    ;;
+                *)
+                    msg=$(printf '%s' "$out" | sed "s/'/''/g")
+                    echo "fail 'hunk: $msg'"
+                    ;;
+            esac
+        }
+    }
+}
+
 # --- Keybindings ----------------------------------------------------------
 # <space>h enters Hunk mode. The primary action (show comments for the
 # current line) is on <ret> and h, so <space>hh / <space>h<ret> shows docs,
@@ -360,5 +485,6 @@ map global hunk r ':hunk-refresh<ret>'        -docstring 'refresh review state'
 map global hunk l ':hunk-list-comments<ret>'  -docstring 'list comments for current file'
 map global hunk n ':hunk-next-comment<ret>'   -docstring 'next commented line'
 map global hunk p ':hunk-prev-comment<ret>'   -docstring 'previous commented line'
+map global hunk R ':hunk-clear-comments<ret>' -docstring 'delete ALL comments'
 
 map global user h ':enter-user-mode hunk<ret>' -docstring 'Hunk review mode'
