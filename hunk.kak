@@ -25,7 +25,7 @@ hook global WinSetOption filetype=hunk-comments %{
     add-highlighter window/hunk-docs/lline regex ^(L\d+:) 1:HunkDocsLine
     add-highlighter window/hunk-docs/meta regex ^(•[^\n]*) 1:HunkDocsMeta
     map buffer normal <ret> ':hunk-docs-goto<ret>' -docstring 'go to comment source line'
-    map buffer user x ':hunk-clear-line<ret>' -docstring 'clear comment on this line'
+    map buffer hunk x ':hunk-clear-line<ret>' -docstring 'clear comment on this line'
     hook -once -always window WinSetOption filetype=.* %{
         remove-highlighter window/hunk-docs
         unmap buffer normal <ret> ':hunk-docs-goto<ret>'
@@ -36,6 +36,10 @@ hook global WinSetOption filetype=hunk-comments %{
 # --- Options -------------------------------------------------------------
 # Gutter flag symbol shown next to lines that carry a Hunk comment.
 declare-option -docstring 'gutter symbol for Hunk-commented lines' str hunk_flag_symbol '!'
+
+# Whether automatic per-file Hunk session checking is enabled. Off by default
+# so plain file opening stays fast; toggle with <space>hh / <space>hq.
+declare-option -docstring 'enable automatic Hunk session checking on file open' bool hunk_enabled false
 
 # Per-buffer line-specs for the flag-lines highlighter (line|face|text ...).
 declare-option -hidden line-specs hunk_comment_flags
@@ -54,9 +58,13 @@ hook global WinCreate .* %{
     add-highlighter window/hunk-comments flag-lines HunkCommentLine hunk_comment_flags
 }
 
-# Refresh automatically when a buffer backed by a file is opened.
+# Refresh automatically when a buffer backed by a file is opened, but only
+# once checking has been explicitly enabled (see hunk-enable / <space>hh).
 hook global BufOpenFile .* %{
-    try %{ hunk-refresh }
+    try %{
+        evaluate-commands %sh{ [ "$kak_opt_hunk_enabled" = true ] || echo fail }
+        hunk-refresh
+    }
 }
 
 # --- Comment: add on current line ----------------------------------------
@@ -473,13 +481,26 @@ define-command hunk-clear-comments -docstring 'delete ALL Hunk comments for the 
     }
 }
 
+# --- Enable / disable automatic checking ----------------------------------
+define-command hunk-enable -docstring 'enable automatic Hunk session checking' %{
+    set-option global hunk_enabled true
+    try %{ hunk-refresh }
+    echo 'Hunk checking enabled'
+}
+
+define-command hunk-disable -docstring 'disable automatic Hunk session checking' %{
+    set-option global hunk_enabled false
+    echo 'Hunk checking disabled'
+}
+
 # --- Keybindings ----------------------------------------------------------
-# <space>h enters Hunk mode. The primary action (show comments for the
-# current line) is on <ret> and h, so <space>hh / <space>h<ret> shows docs,
-# while <space>hr refreshes, <space>hc adds a comment, etc.
+# <space>h enters Hunk mode. Checking is off by default; <space>hh enables it
+# (and refreshes the current buffer), <space>hq disables it again.
 declare-user-mode hunk
+map global hunk h ':hunk-enable<ret>'         -docstring 'enable Hunk checking'
+map global hunk q ':hunk-disable<ret>'        -docstring 'disable Hunk checking'
 map global hunk <ret> ':hunk-show-comments<ret>' -docstring 'show comments for current line'
-map global hunk h ':hunk-show-comments<ret>'  -docstring 'show comments for current line'
+map global hunk s ':hunk-show-comments<ret>'  -docstring 'show comments for current line'
 map global hunk c ':hunk-comment<ret>'        -docstring 'add comment on current line'
 map global hunk r ':hunk-refresh<ret>'        -docstring 'refresh review state'
 map global hunk l ':hunk-list-comments<ret>'  -docstring 'list comments for current file'

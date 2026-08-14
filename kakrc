@@ -121,6 +121,7 @@ source ~/.config/kak/timesheet.kak
 source ~/.config/kak/http.kak
 source ~/.config/kak/hunk.kak
 source ~/.config/kak/vue.kak
+source ~/.config/kak/agentwatch.kak
 hook global BufOpenFile .* expandtab
 hook global BufNewFile  .* expandtab
 hook global WinCreate .* %{ kakboard-enable }

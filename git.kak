@@ -9,6 +9,8 @@ map global git r ':git apply --cached --reverse<ret>' -docstring 'git undo add s
 map global git a ':git apply --cached<ret>' -docstring 'git add selection'
 map global git R ':git reset HEAD -- %val{buffile}<ret>' -docstring 'git reset file'
 map global git A ':git add<ret>' -docstring 'git add file'
+map global git f ':git add -N %val{buffile}<ret>' -docstring 'git add --intent-to-add current file'
+map global git F ':git-add-N-all-untracked<ret>' -docstring 'git add --intent-to-add all untracked files'
 
 # Main hook (git branch update, gutters)
 hook global -group git-main-hook NormalIdle .* %{
@@ -66,6 +68,8 @@ map global git b ':git blame<ret>' -docstring 'blame'
 map global git B ':git blame-jump<ret>' -docstring 'blame jump'
 map global git s ':git-status<ret>' -docstring 'status (porcelain)'
 map global git d ':git diff<ret>' -docstring 'diff'
+map global git <a-d> ':git diff --staged<ret>' -docstring 'diff staged'
+map global git <a-D> ':git diff HEAD<ret>' -docstring 'diff all tracked changes (staged + unstaged)'
 map global git c ':git-blame-current-line<ret>' -docstring 'blame current line'
 
 define-command git-permalink -docstring "Yank GitHub permalink" %{
@@ -96,6 +100,22 @@ define-command git-open -docstring "Open github link" %{
 }
 map global git o ":git-open<ret>" -docstring "  Open permalink"
 
+define-command git-add-N-all-untracked -docstring 'intent-to-add all untracked files (respecting .gitignore)' %{
+    evaluate-commands %sh{
+        toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'not in a git repository'"
+            exit
+        fi
+        count=$(git -C "$toplevel" ls-files --others --exclude-standard | wc -l | tr -d '[:space:]')
+        if [ "$count" = "0" ]; then
+            echo "info 'no untracked files'"
+            exit
+        fi
+        git -C "$toplevel" ls-files --others --exclude-standard -z | xargs -0 git -C "$toplevel" add -N
+        echo "info 'intent-to-add $count untracked file(s)'"
+    }
+}
 map global git m ':git-conflicts<ret>' -docstring 'merge conflicts'
 map global git h ':git-file-history<ret>' -docstring 'commits for current file'
 map global git H ':git-repo-history<ret>' -docstring 'last 100 commits for repo'
