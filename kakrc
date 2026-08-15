@@ -132,7 +132,21 @@ hook global WinSetOption filetype=kaktree %{
     remove-highlighter buffer/show-whitespaces
 }
 kaktree-enable
-map global user T ':kaktree--display<ret>'  -docstring 'display file tree'
+define-command -override kaktree-toggle %{
+    evaluate-commands %sh{
+        # If the kaktree client already exists (e.g. IDE mode), display there.
+        # Otherwise take over the current window: point kaktreeclient at the
+        # current client so the tree opens in place instead of a new pane.
+        if printf '%s\n' "$kak_client_list" | grep -qw "$kak_opt_kaktreeclient"; then
+            echo "kaktree--display"
+        else
+            echo "set-option global kaktree__jumpclient %val{client}"
+            echo "set-option global kaktreeclient %val{client}"
+            echo "kaktree--display"
+        fi
+    }
+}
+map global user T ':kaktree-toggle<ret>'  -docstring 'display file tree'
 # buffer mappings
 map global user l ": recent-buffers-pick-link<ret>" -docstring "recent buffers"
 set-face global HiddenSelection 'white,bright-red+F'
@@ -272,6 +286,15 @@ map global lsp k ':lsp-hover-buffer<ret>'           -docstring 'hover in a dedic
 
 # window
 declare-user-mode window
+define-command -override toggle-wrap -docstring 'toggle line wrapping' %{
+    try %{
+        add-highlighter window/wrap wrap -word -indent
+        echo 'wrap on'
+    } catch %{
+        remove-highlighter window/wrap
+        echo 'wrap off'
+    }
+}
 define-command tmux-split -params 2 -docstring 'split tmux pane' %{
     nop %sh{
         tmux split-window $1 kak -c "$kak_session" 
@@ -286,7 +309,9 @@ map global window -docstring 'zoom' z %{:nop %sh{TMUX="${kak_client_env_TMUX}" t
 map global window -docstring 'split horizontal' <minus> ":tmux-split -v new<ret>"
 map global window -docstring 'split vertical' '|'  ":tmux-split -h new<ret>"
 map global window -docstring 'start ide' 'i'  ":ide <ret>"
+map global window -docstring 'toggle wrap' 'w'  ":toggle-wrap<ret>"
 map global user -docstring 'close all' 'Q'  ":close-ide <ret>"
+map global user -docstring 'close window' 'q'  ":quit<ret>"
 map global window -docstring 'close buffer' 'x'  ":delete-buffer <ret>"
 map global window -docstring 'close buffer' 'X'  ":delete-buffer! <ret>"
 
