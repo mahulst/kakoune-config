@@ -243,8 +243,15 @@ hook -group lsp-filetype-html global BufSetOption filetype=html %{
 }
 
 # Vue (.vue) buffers
+declare-option -hidden str vue_ts_plugin_location
 hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
-    set-option buffer lsp_servers %{
+    # Resolve the global @vue/language-server install once (nvm/mise/homebrew all differ)
+    evaluate-commands %sh{
+        if [ -z "$kak_opt_vue_ts_plugin_location" ]; then
+            printf 'set-option global vue_ts_plugin_location %%{%s}\n' "$(npm root -g 2>/dev/null)/@vue/language-server"
+        fi
+    }
+    set-option buffer lsp_servers %exp{
         # vuels = { command = "vue-language-server", args = ["--stdio"], config = { typescript = { tsdk = "node_modules/typescript/lib/" } } }
         # [vue-language-server]
         # filetypes = ["vue"]
@@ -269,7 +276,7 @@ hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
 
         [[typescript-language-server.settings._.plugins]]
         name = "@vue/typescript-plugin"
-        location = "/Users/mahulst/.nvm/versions/node/v24.13.1/lib/node_modules/@vue/language-server"
+        location = "%opt{vue_ts_plugin_location}"
         languages = ["vue"]
         # quotePreference = "double"
         # typescript.format.semicolons = "insert"

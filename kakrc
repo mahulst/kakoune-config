@@ -120,6 +120,7 @@ source ~/.config/kak/tasks.kak
 source ~/.config/kak/timesheet.kak
 source ~/.config/kak/http.kak
 source ~/.config/kak/hunk.kak
+source ~/.config/kak/hypr.kak
 source ~/.config/kak/vue.kak
 source ~/.config/kak/agentwatch.kak
 hook global WinCreate .* %{ kakboard-enable }
@@ -129,6 +130,9 @@ hook global WinSetOption filetype=kaktree %{
     remove-highlighter buffer/wrap
     remove-highlighter buffer/show-whitespaces
 }
+# Require the module up front: requiring it inside kaktree-enable corrupts the
+# rest of that command's body on newer Kakoune ("kaktree--enablP: no such command")
+require-module kaktree
 kaktree-enable
 define-command -override kaktree-toggle %{
     evaluate-commands %sh{
@@ -204,11 +208,17 @@ set-option global ui_options terminal_enable_mouse=false
 add-highlighter global/ number-lines -relative -separator '  ' -min-digits 3
 
 declare-option str extra_yank_system_clipboard_cmd %sh{
-  test "$(uname)" = "Darwin" && echo 'pbcopy' || echo 'xclip'
+  if [ "$(uname)" = "Darwin" ]; then echo 'pbcopy'
+  elif [ -n "$WAYLAND_DISPLAY" ]; then echo 'wl-copy >/dev/null 2>&1'
+  else echo 'xclip -selection clipboard'
+  fi
 }
 
 declare-option str extra_paste_system_clipboard_cmd %sh{
- test "$(uname)" = "Darwin" && echo 'pbpaste' || echo 'xsel -ob'
+  if [ "$(uname)" = "Darwin" ]; then echo 'pbpaste'
+  elif [ -n "$WAYLAND_DISPLAY" ]; then echo 'wl-paste -n'
+  else echo 'xsel -ob'
+  fi
 }
 define-command extra-yank-system -docstring 'yank into the system clipboard' %{
   execute-keys -draft "<a-!>%opt{extra_yank_system_clipboard_cmd}<ret>"
@@ -223,7 +233,7 @@ map global user '/' ':comment-line<ret>' -docstring 'comment line'
 
 
 # lsp
-eval %sh{/opt/homebrew/bin/kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
+eval %sh{kak-lsp --kakoune -s $kak_session}  # Not needed if you load it with plug.kak.
 lsp-enable
 declare-option -hidden str modeline_progress ""
 define-command -hidden -params 6 -override lsp-handle-progress %{
@@ -299,13 +309,44 @@ define-command tmux-split -params 2 -docstring 'split tmux pane' %{
     }
 }
 
-map global window -docstring 'select pane left' h %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -L}<ret>}
-map global window -docstring 'select pane down' j %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -D}<ret>}
-map global window -docstring 'select pane up' k %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -U}<ret>}
-map global window -docstring 'select pane right' l %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux select-pane -R}<ret>}
-map global window -docstring 'zoom' z %{:nop %sh{TMUX="${kak_client_env_TMUX}" tmux resize-pane -Z}<ret>}
-map global window -docstring 'split horizontal' <minus> ":tmux-split -v new<ret>"
-map global window -docstring 'split vertical' '|'  ":tmux-split -h new<ret>"
+# tmux panes when inside tmux, otherwise hyprland windows (see hypr.kak)
+define-command window-split -params 1 -docstring 'window-split <h|v>: open a new client below (h) or right (v)' %{
+    evaluate-commands %sh{
+        if [ -n "$kak_client_env_TMUX" ]; then
+            [ "$1" = h ] && echo 'tmux-split -v new' || echo 'tmux-split -h new'
+        else
+            [ "$1" = h ] && echo 'hypr-split d' || echo 'hypr-split r'
+        fi
+    }
+}
+
+define-command window-select -params 1 -docstring 'window-select <l|d|u|r>: focus the pane/window in a direction' %{
+    nop %sh{
+        if [ -n "$kak_client_env_TMUX" ]; then
+            TMUX="$kak_client_env_TMUX" tmux select-pane -$(echo "$1" | tr ldur LDUR)
+        else
+            sh "$kak_opt_hypr_script" select "$1"
+        fi
+    }
+}
+
+define-command window-zoom-toggle -docstring 'maximize/restore the current pane/window' %{
+    nop %sh{
+        if [ -n "$kak_client_env_TMUX" ]; then
+            TMUX="$kak_client_env_TMUX" tmux resize-pane -Z
+        else
+            sh "$kak_opt_hypr_script" zoom
+        fi
+    }
+}
+
+map global window -docstring 'select pane left' h ':window-select l<ret>'
+map global window -docstring 'select pane down' j ':window-select d<ret>'
+map global window -docstring 'select pane up' k ':window-select u<ret>'
+map global window -docstring 'select pane right' l ':window-select r<ret>'
+map global window -docstring 'zoom' z ':window-zoom-toggle<ret>'
+map global window -docstring 'split horizontal' <minus> ':window-split h<ret>'
+map global window -docstring 'split vertical' '|'  ':window-split v<ret>'
 map global window -docstring 'start ide' 'i'  ":ide <ret>"
 map global window -docstring 'toggle wrap' 'w'  ":toggle-wrap<ret>"
 map global user -docstring 'close all' 'Q'  ":close-ide <ret>"
@@ -324,13 +365,8 @@ map global window  -docstring 'focus tools' T ":focus tools<ret>"
 map global window  -docstring 'focus code' C ":focus main<ret>"
 
 define-command zoom -params 1 %{
- evaluate-commands  %{
-     focus %arg{1}
- }
-    evaluate-commands  %sh{
-         TMUX="${kak_client_env_TMUX}" tmux resize-pane -Z
-    }
-    
+    focus %arg{1}
+    window-zoom-toggle
 }
 # IDE command
  
@@ -346,24 +382,32 @@ define-command ide  %{
     set-option global is_in_ide_mode 'true'
 
 
-    set-option local windowing_placement horizontal;
     rename-client main
     set-option global jumpclient main
-
-    new rename-client tools
     set-option global toolsclient tools
-
-    new rename-client docs
     set-option global docsclient docs
 
-    nop %sh{
-        if [[ -n $TMUX ]]; then
-            tmux select-layout main-vertical
-            tmux swap-pane -s 3 -t 1
-            tmux swap-pane -s 3 -t 2
-            tmux resize-pane -t 2 -y 70%
-            tmux select-pane -t 2
+    evaluate-commands %sh{
+        if [ -n "$kak_client_env_TMUX" ]; then
+            echo 'ide-tmux'
+        else
+            echo 'hypr-ide-layout'
         fi
+    }
+}
+
+define-command -hidden ide-tmux %{
+    set-option local windowing_placement horizontal
+    new rename-client tools
+    new rename-client docs
+
+    nop %sh{
+        export TMUX="$kak_client_env_TMUX"
+        tmux select-layout main-vertical
+        tmux swap-pane -s 3 -t 1
+        tmux swap-pane -s 3 -t 2
+        tmux resize-pane -t 2 -y 70%
+        tmux select-pane -t 2
     }
 
 }

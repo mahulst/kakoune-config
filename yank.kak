@@ -1,10 +1,6 @@
 define-command copy-file-path %{
     evaluate-commands -save-regs '"' %sh{
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            echo "$kak_buffile" | pbcopy
-        else
-            echo "$kak_buffile" | xclip -selection clipboard
-        fi
+        printf '%s' "$kak_buffile" | eval "$kak_opt_extra_yank_system_clipboard_cmd"
     }
     echo -markup "{info}File path copied to clipboard."
 }
@@ -12,11 +8,7 @@ define-command copy-file-path %{
 define-command copy-file-name %{
     evaluate-commands -save-regs '"' %sh{
         filename=$(basename "$kak_buffile")
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            echo "$filename" | pbcopy
-        else
-            echo "$filename" | xclip -selection clipboard
-        fi
+        printf '%s' "$filename" | eval "$kak_opt_extra_yank_system_clipboard_cmd"
     }
     echo -markup "{info}File name copied to clipboard."
 }
