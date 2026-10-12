@@ -59,7 +59,7 @@ define-command jest-next-error %{
         set-register "/" "FAIL "
         execute-keys "n"
     } catch %{
-    	fail "No failed tests found"
+        fail "No failed tests found"
     }
     set-register "/" %reg{b}
 }
@@ -71,7 +71,7 @@ define-command jest-open-file %{
 
         set-register "/" %reg{b}
 
-	    edit-line-column %reg{1} %reg{2}
+        edit-line-column %reg{1} %reg{2}
     }
 }
 
@@ -140,6 +140,6 @@ define-command jest-run-all -docstring 'Run all tests' %{
 declare-user-mode jest
 
 map -docstring "Run all test" \
-	global jest t %{: jest-run-all  <ret>}
+    global jest t %{: jest-run-all  <ret>}
 map -docstring "Run test" \
-	global jest f %{: jest-run-file <ret>}
+    global jest f %{: jest-run-file <ret>}

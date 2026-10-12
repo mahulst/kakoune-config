@@ -45,22 +45,22 @@ declare-user-mode cpp
 map global user -docstring 'cpp' C ':enter-user-mode cpp<ret>'
 
 map -docstring "Compile current file" \
-	global cpp c %{: compile-file-c <ret>}
+    global cpp c %{: compile-file-c <ret>}
 
 map -docstring "Run compiled file" \
-	global cpp R %{: run-compiled-file-c <ret>}
+    global cpp R %{: run-compiled-file-c <ret>}
 
 map -docstring "Compile and run" \
-	global cpp r %{: compile-and-run-c <ret> }
+    global cpp r %{: compile-and-run-c <ret> }
 
 map -docstring "Make and run" \
-	global cpp m %{: compile-and-run-c-with-make <ret> }
+    global cpp m %{: compile-and-run-c-with-make <ret> }
 
 map -docstring "Flash" \
-	global cpp f %{: flash-to-board <ret> }
+    global cpp f %{: flash-to-board <ret> }
 
 map -docstring "Generate compile-commands (bear)" \
-	global cpp b %{: bear-make <ret> }
+    global cpp b %{: bear-make <ret> }
 
 
 

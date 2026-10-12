@@ -297,21 +297,26 @@ hook -group lsp-filetype-javascript global BufSetOption filetype=(?:javascript|t
         [typescript-language-server]
         filetypes = ["typescript"]
         root_globs = [".git", "pnpm-workspace.yaml"]
-        # command = "./node_modules/.bin/tsgo"
-        # args = [
-        #     "--lsp",
-        #     "--stdio"
-        # ]
-        # command = "./node_modules/typescript-7/bin/tsc"
-        # args = [
-        #     "--lsp",
-        #     "--stdio"
-        # ]
-        command = "pnpm"
+        # Never go through "pnpm exec": pnpm writes engine warnings and install
+        # progress to stdout, which corrupts the JSON-RPC stream ("Failed to
+        # parse header"). Resolve the server binary ourselves instead.
+        command = "sh"
         args = [
-            "exec",
-            "typescript-language-server",
-            "--stdio",
+            "-c",
+            """
+                # typescript@7 is the native port and ships no tsserver.js;
+                # it speaks LSP itself via --lsp.
+                if [ -f node_modules/typescript/lib/getExePath.js ]; then
+                    exe=$(node -e 'import("./node_modules/typescript/lib/getExePath.js").then(m => console.log(m.default()))' 2>/dev/null)
+                    if [ -n "$exe" ] && [ -x "$exe" ]; then
+                        exec "$exe" --lsp --stdio
+                    fi
+                fi
+                if [ -x node_modules/.bin/typescript-language-server ]; then
+                    exec node_modules/.bin/typescript-language-server --stdio
+                fi
+                exec typescript-language-server --stdio
+            """,
         ]
 
         settings_section = "_"

@@ -20,7 +20,7 @@ declare-user-mode jai
 map global user -docstring 'jai' j ':enter-user-mode jai<ret>'
 
 map -docstring "Run current file" \
-	global jai r %{: compile-and-run-jai <ret>}
+    global jai r %{: compile-and-run-jai <ret>}
 
 hook global WinSetOption filetype=jai %{
     require-module jai

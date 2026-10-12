@@ -96,11 +96,11 @@ declare-user-mode godot
 #     %{:enter-user-mode godot<ret>}
 
 map -docstring "Run file" \
-	global godot r %{: godot-run-file  <ret>}
+    global godot r %{: godot-run-file  <ret>}
 map -docstring "Run all test" \
-	global godot t %{: godot-run-tests <ret>}
+    global godot t %{: godot-run-tests <ret>}
 map -docstring "Run test file" \
-	global godot T %{: godot-run-tests <ret>}
+    global godot T %{: godot-run-tests <ret>}
 
 map -docstring "Run gdformat" \
-	global godot f %{: godot-run-format  <ret>}
+    global godot f %{: godot-run-format  <ret>}

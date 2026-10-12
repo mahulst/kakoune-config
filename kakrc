@@ -122,8 +122,6 @@ source ~/.config/kak/http.kak
 source ~/.config/kak/hunk.kak
 source ~/.config/kak/vue.kak
 source ~/.config/kak/agentwatch.kak
-hook global BufOpenFile .* expandtab
-hook global BufNewFile  .* expandtab
 hook global WinCreate .* %{ kakboard-enable }
 hook global WinSetOption filetype=kaktree %{
     remove-highlighter buffer/numbers
@@ -203,7 +201,7 @@ map global user d ':duplicate-line<ret>' -docstring 'duplicate line'
 colorscheme catppuccin_macchiato
 set-option global ui_options terminal_enable_mouse=false
 
-add-highlighter global/ number-lines -relative
+add-highlighter global/ number-lines -relative -separator '  ' -min-digits 3
 
 declare-option str extra_yank_system_clipboard_cmd %sh{
   test "$(uname)" = "Darwin" && echo 'pbcopy' || echo 'xclip'
@@ -410,7 +408,7 @@ define-command surround-replace -docstring 'prompt for a surrounding pair and re
 }
 
 define-command -hidden surround-replace-sub -params 1 %{
-	on-key %{
+    on-key %{
             evaluate-commands -no-hooks -draft %{
               execute-keys "<a-a>%arg{1}"
 
@@ -421,7 +419,7 @@ define-command -hidden surround-replace-sub -params 1 %{
 
             # delete the old one
             match-delete-surround-key %arg{1}
-	}
+    }
 }
 
 define-command -hidden match-delete-surround-key -params 1 %{

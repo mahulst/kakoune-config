@@ -56,10 +56,10 @@ declare-user-mode odin
 map global user -docstring 'odin' o ':enter-user-mode odin<ret>'
 
 map -docstring "build" \
-	global odin b %{: build-odin <ret>}
+    global odin b %{: build-odin <ret>}
 
 map -docstring "run" \
-	global odin r %{: run-odin <ret>}
+    global odin r %{: run-odin <ret>}
 
 def open_changed_file_picker %{
   prompt changed_files: -menu -shell-script-candidates "git status -z --no-renames | tr '\0' '\n'" %{
@@ -75,7 +75,7 @@ define-command odin-compile-next-error %{
         set-register "/" %opt{odin_compile_file_pattern}
         execute-keys "n"
     } catch %{
-    	fail "No errors found"
+        fail "No errors found"
     }
     set-register "/" %reg{b}
 }
@@ -89,7 +89,7 @@ define-command odin-compile-open-file %{
             execute-keys "n"
 
             set-register "/" %reg{b}
-    	    edit-line-column %reg{1} %reg{2}
+            edit-line-column %reg{1} %reg{2}
         } catch %{
             echo -debug "failed, checking if it's a log"
             try %{
@@ -108,6 +108,6 @@ define-command odin-go-to-log %{
         execute-keys "<a-n>"
 
         set-register "/" %reg{b}
-	    edit-line-column %reg{1} %reg{2}
+        edit-line-column %reg{1} %reg{2}
     }
 }

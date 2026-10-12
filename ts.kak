@@ -55,7 +55,7 @@ define-command -hidden tsc-jump %{
         execute-keys "/" %opt{tsc_error_pattern} <ret>
         execute-keys <a-/> %opt{tsc_error_pattern} <ret><a-:> "<a-;>"
 
-	    edit-line-column %reg{1} %reg{2}
+        edit-line-column %reg{1} %reg{2}
     }
 }
 

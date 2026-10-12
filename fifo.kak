@@ -7,10 +7,10 @@ declare-option -docstring "regex describing format in which fifos are saved" \
     "^([^\n]*) \^\|\^ ([a-z-]*)$"
 
 map -docstring "Rerun last fifo" \
-	global user R %{: run-last-fifo <ret>}
+    global user R %{: run-last-fifo <ret>}
 
 map -docstring "See all fifo commands in this repo" \
-	global user F %{: open-last-fifos <ret>}
+    global user F %{: open-last-fifos <ret>}
 
 define-command run-in-fifo -params 2..3 %{
     evaluate-commands %{

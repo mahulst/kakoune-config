@@ -90,7 +90,7 @@ define-command cargo-open-file %{
 
         execute-keys -draft "g" "h" "/" %opt{cargo_file_pattern} <ret> "<a-;>" ";T:" '"fy' 'llT:"ly'
 
-	edit-line-column %reg{f} %reg{l}
+    edit-line-column %reg{f} %reg{l}
     }
 }
 
@@ -102,7 +102,7 @@ define-command cargo-next-error -docstring 'Jump to the next cargo error' %{
             execute-keys "n"
         }
     } catch %{
-    	fail "No Cargo errors found"
+        fail "No Cargo errors found"
     }
     set-register "/" %reg{b}
 }
@@ -115,7 +115,7 @@ define-command cargo-previous-error -docstring 'Jump to the previous cargo error
             execute-keys "<a-n>"
         }
     } catch %{
-    	fail "No Cargo errors found"
+        fail "No Cargo errors found"
     }
     set-register "/" %reg{b}
 }
@@ -151,17 +151,17 @@ define-command cargo-run-run-release -docstring 'Run as "cargo run --release"' %
 declare-user-mode cargo
 
 map -docstring "Run" \
-	global cargo r %{: cargo-run-run <ret>}
+    global cargo r %{: cargo-run-run <ret>}
 map -docstring "Run --release" \
-	global cargo R %{: cargo-run-run-release <ret>}
+    global cargo R %{: cargo-run-run-release <ret>}
 map -docstring "Run tests" \
-	global cargo t %{: run-in-fifo 'cargo test' cargo<ret>}
+    global cargo t %{: run-in-fifo 'cargo test' cargo<ret>}
 map -docstring "Run example" \
-	global cargo e %{: cargo-run-example <ret>}
+    global cargo e %{: cargo-run-example <ret>}
 map -docstring "Run example --release" \
-	global cargo E %{: cargo-run-example-release<ret>}
+    global cargo E %{: cargo-run-example-release<ret>}
 map -docstring "Check syntax" \
-	global cargo c %{: run-in-fifo 'cargo check --all-targets'  cargo<ret>}
+    global cargo c %{: run-in-fifo 'cargo check --all-targets'  cargo<ret>}
 map -docstring "Build documentation" \
-	global cargo d %{: run-in-fifo 'cargo doc' cargo<ret>}
+    global cargo d %{: run-in-fifo 'cargo doc' cargo<ret>}
 

@@ -121,7 +121,49 @@ map global git h ':git-file-history<ret>' -docstring 'commits for current file'
 map global git H ':git-repo-history<ret>' -docstring 'last 100 commits for repo'
 map global git S ':git-stashes<ret>' -docstring 'list stashes'
 map global git t ':git-branches-by-date<ret>' -docstring 'branches by last commit date'
+map global git w ':git-wip<ret>' -docstring 'wip commit (gwip)'
+map global git u ':git-unwip<ret>' -docstring 'undo wip commit, keep changes (gunwip)'
 map global user -docstring 'gitt' g ':enter-user-mode git<ret>'
+
+define-command git-wip -docstring 'commit all changes as a wip commit (gwip)' %{
+    evaluate-commands %sh{
+        toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'not in a git repository'"
+            exit
+        fi
+        output=$(cd "$toplevel" && { git add -A; git rm $(git ls-files --deleted) 2>/dev/null; git commit --no-verify --no-gpg-sign --message "--wip-- [skip ci]"; } 2>&1)
+        status=$?
+        escaped_output=$(printf "%s" "$output" | sed "s/'/'\\''/g")
+        if [ "$status" -ne 0 ]; then
+            echo "fail '$escaped_output'"
+        else
+            echo "info 'wip commit created'"
+        fi
+    }
+}
+
+define-command git-unwip -docstring 'undo last wip commit, keeping changes (gunwip)' %{
+    evaluate-commands %sh{
+        toplevel=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [ -z "$toplevel" ]; then
+            echo "fail 'not in a git repository'"
+            exit
+        fi
+        if ! git -C "$toplevel" rev-list --max-count=1 --format="%s" HEAD | grep -q -- '--wip--'; then
+            echo "fail 'HEAD is not a wip commit'"
+            exit
+        fi
+        output=$(git -C "$toplevel" reset HEAD~1 2>&1)
+        status=$?
+        escaped_output=$(printf "%s" "$output" | sed "s/'/'\\''/g")
+        if [ "$status" -ne 0 ]; then
+            echo "fail '$escaped_output'"
+        else
+            echo "info 'wip commit undone'"
+        fi
+    }
+}
 
 # Git merge conflicts buffer
 declare-option -hidden str git_conflicts_root

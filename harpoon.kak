@@ -29,7 +29,7 @@ define-command harpoon-jump %{
 
         execute-keys -draft "g" "h" "/" %opt{harpoon_file_pattern} <ret> "<a-;>" ";T:" '"fy' 'llT:"ly'
 
-	harpoon-line-column %reg{f} %reg{l}
+    harpoon-line-column %reg{f} %reg{l}
     }
 }
 define-command harpoon-line-column -params 2 %{
