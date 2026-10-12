@@ -92,6 +92,12 @@ declare-option -docstring 'command to use to create new window when not using tm
 Default value: terminal kak -c %val{session} -e "%arg{@}"' \
 str fzf_terminal_command 'terminal kak -c %val{session} -e "%arg{@}"'
 
+declare-option -docstring 'command that runs the fzf picker in a new window when not using tmux.
+It receives the path of an executable script as its only argument.
+
+Default value: terminal' \
+str fzf_popup_command 'terminal'
+
 declare-option -docstring "use main selection as default query for fzf if the selection is longer than 1 char." \
 bool fzf_use_main_selection true
 
@@ -240,7 +246,7 @@ fzf -params .. %{ evaluate-commands %sh{
         printf "%s\n" "echo -debug  command tmux ${tmux_command} -t '${kak_client_env_TMUX_PANE:-}' ${measure} ${tmux_height} ${popup_width_measure} ${popup_width} env ${fzfcmd} < /dev/null > /dev/null 2>&1 "
         echo $cmd > /tmp/fzf.kak.test
     else
-        cmd="${kak_opt_fzf_terminal_command%% *} %{${fzfcmd}}"
+        cmd="${kak_opt_fzf_popup_command:?} %{${fzfcmd}}"
     fi
 
     printf "%s\n" "echo -debug $fzfcmd"
