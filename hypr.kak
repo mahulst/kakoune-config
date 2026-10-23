@@ -43,6 +43,12 @@ define-command -hidden hypr-ide-layout %{
     }
 }
 
+define-command -hidden hypr-ide-reset %{
+    nop %sh{
+        TERMCMD="$kak_opt_termcmd" sh "$kak_opt_hypr_script" reset "$kak_session" </dev/null >/dev/null 2>&1 &
+    }
+}
+
 # fzf pickers open in a floating window (class kak.popup, see hypr/hyprland.lua)
 # instead of a tiled one, like the tmux popup they get inside tmux
 define-command hypr-popup -params 1 -docstring 'hypr-popup <command>: run a command in a floating terminal' %{

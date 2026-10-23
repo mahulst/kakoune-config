@@ -348,6 +348,7 @@ map global window -docstring 'zoom' z ':window-zoom-toggle<ret>'
 map global window -docstring 'split horizontal' <minus> ':window-split h<ret>'
 map global window -docstring 'split vertical' '|'  ':window-split v<ret>'
 map global window -docstring 'start ide' 'i'  ":ide <ret>"
+map global window -docstring 'reset ide layout' 'r'  ":ide-reset <ret>"
 map global window -docstring 'toggle wrap' 'w'  ":toggle-wrap<ret>"
 map global user -docstring 'close all' 'Q'  ":close-ide <ret>"
 map global user -docstring 'close window' 'q'  ":quit<ret>"
@@ -371,6 +372,9 @@ define-command zoom -params 1 %{
 # IDE command
  
 declare-option bool is_in_ide_mode 'false'
+# Buffers the tools/docs clients reopen on when ide-reset rebuilds the layout
+declare-option -hidden str ide_tools_buffer
+declare-option -hidden str ide_docs_buffer
 define-command ide  %{
     evaluate-commands %sh{
         if [ "$kak_opt_is_in_ide_mode" = "false" ]; then
@@ -398,8 +402,8 @@ define-command ide  %{
 
 define-command -hidden ide-tmux %{
     set-option local windowing_placement horizontal
-    new rename-client tools
-    new rename-client docs
+    new %{rename-client tools; try %{ buffer %opt{ide_tools_buffer} }}
+    new %{rename-client docs; try %{ buffer %opt{ide_docs_buffer} }}
 
     nop %sh{
         export TMUX="$kak_client_env_TMUX"
@@ -410,6 +414,30 @@ define-command -hidden ide-tmux %{
         tmux select-pane -t 2
     }
 
+}
+
+# Rebuild the ide layout: close tools/docs and reopen them on the buffers they showed
+define-command ide-reset -docstring 'restore the initial ide window layout' %{
+    evaluate-commands %sh{
+        [ "$kak_opt_is_in_ide_mode" = "true" ] || echo "fail 'Not in ide mode'"
+    }
+    set-option global ide_tools_buffer ''
+    set-option global ide_docs_buffer ''
+    evaluate-commands -try-client tools %{
+        set-option global ide_tools_buffer %val{bufname}
+        quit
+    }
+    evaluate-commands -try-client docs %{
+        set-option global ide_docs_buffer %val{bufname}
+        quit
+    }
+    evaluate-commands -client main %sh{
+        if [ -n "$kak_client_env_TMUX" ]; then
+            echo 'ide-tmux'
+        else
+            echo 'hypr-ide-reset'
+        fi
+    }
 }
 
 define-command close-ide %{

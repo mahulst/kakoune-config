@@ -3,6 +3,7 @@
 # Works with the dwindle and scrolling layouts, using the Lua dispatch syntax.
 #
 #   hypr.sh ide <session>                  tools left (30% wide), main right 80% high, docs below 20%
+#   hypr.sh reset <session>                rebuild the ide layout once tools/docs are closed
 #   hypr.sh split <r|d> <session> [cmds]   open a client right of / below the focused window
 #   hypr.sh focus <client> <session>       focus the window of a kakoune client
 #   hypr.sh select <l|r|u|d>               move focus in a direction
@@ -61,17 +62,17 @@ ide() {
     session=$1
     main=$(active)
     if [ "$(layout)" = scrolling ]; then
-        tools=$(spawn "$session" rename-client tools) || return
+        tools=$(spawn "$session" "rename-client tools; try %{ buffer %opt{ide_tools_buffer} }") || return
         layoutmsg "swapcol l"
         focus_address "$main"
-        docs=$(spawn "$session" rename-client docs) || return
+        docs=$(spawn "$session" "rename-client docs; try %{ buffer %opt{ide_docs_buffer} }") || return
         layoutmsg "consume_or_expel prev"
     else
         layoutmsg "preselect l"
-        tools=$(spawn "$session" rename-client tools) || return
+        tools=$(spawn "$session" "rename-client tools; try %{ buffer %opt{ide_tools_buffer} }") || return
         focus_address "$main"
         layoutmsg "preselect d"
-        docs=$(spawn "$session" rename-client docs) || return
+        docs=$(spawn "$session" "rename-client docs; try %{ buffer %opt{ide_docs_buffer} }") || return
     fi
     sleep 0.2
 
@@ -99,11 +100,25 @@ ide() {
     focus_address "$main"
 }
 
+# Wait for the old tools/docs windows to close, then rebuild from main
+reset() {
+    session=$1
+    for _ in $(seq 30); do
+        hyprctl clients -j | jq -e --arg s "$session" \
+            'any(.title | test(" - (tools|docs)@\\[\($s)\\] - Kakoune$"))' >/dev/null || break
+        sleep 0.1
+    done
+    dispatch "hl.dsp.focus({ window = [==[title:.* - main@\\[$session\\] - Kakoune]==] })"
+    unzoom
+    ide "$session"
+}
+
 case $1 in
     ide)    shift; ide "$@" ;;
+    reset)  shift; reset "$@" ;;
     split)  shift; split "$@" ;;
     focus)  unzoom; dispatch "hl.dsp.focus({ window = [==[title:.* - $2@\\[$3\\] - Kakoune]==] })" ;;
     select) unzoom; dispatch "hl.dsp.focus({ direction = \"$2\" })" ;;
     zoom)   dispatch 'hl.dsp.window.fullscreen({ mode = "maximized" })' ;;
-    *)      echo "usage: hypr.sh ide|split|focus|select|zoom ..." >&2; exit 1 ;;
+    *)      echo "usage: hypr.sh ide|reset|split|focus|select|zoom ..." >&2; exit 1 ;;
 esac

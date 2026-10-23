@@ -243,59 +243,53 @@ hook -group lsp-filetype-html global BufSetOption filetype=html %{
 }
 
 # Vue (.vue) buffers
-declare-option -hidden str vue_ts_plugin_location
+# vue-language-server 2.x in non-hybrid mode handles template and script in a
+# single server. 3.x only runs in hybrid mode, which needs the editor to relay
+# requests to a separate tsserver; kak-lsp can't. Installed outside any Node
+# version manager's global root, matching the project's vue-tsc version:
+#   npm install --prefix ~/.local/share/kak-lsp-servers @vue/language-server@2.2.12
+declare-option -hidden str vue_tsdk
 hook -group lsp-filetype-vue global BufSetOption filetype=vue %{
-    # Resolve the global @vue/language-server install once (nvm/mise/homebrew all differ)
+    # Use the TypeScript the project's vue-tsc runs on, so diagnostics match its
+    # typecheck. Run node from the git root: nested .nvmrc files may pin a Node
+    # version proto doesn't have installed.
     evaluate-commands %sh{
-        if [ -z "$kak_opt_vue_ts_plugin_location" ]; then
-            printf 'set-option global vue_ts_plugin_location %%{%s}\n' "$(npm root -g 2>/dev/null)/@vue/language-server"
+        dir=$(dirname "$kak_buffile")
+        root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || root=$dir
+        tsdk=$(cd "$root" && node -e '
+            const path = require("path")
+            const from = process.argv[1]
+            const resolveTypeScript = (base) => {
+                try { return path.dirname(require.resolve("typescript/lib/typescript.js", { paths: [base] })) } catch {}
+            }
+            let vueTsc
+            try { vueTsc = path.dirname(require.resolve("vue-tsc/package.json", { paths: [from] })) } catch {}
+            const tsdk = (vueTsc && resolveTypeScript(vueTsc)) ?? resolveTypeScript(from)
+            if (tsdk) console.log(tsdk)
+        ' "$dir" 2>/dev/null)
+        if [ -n "$tsdk" ]; then
+            printf 'set-option buffer vue_tsdk %%{%s}\n' "$tsdk"
+        else
+            echo 'echo -debug "vue-language-server: no TypeScript with lib/typescript.js found"'
         fi
     }
     set-option buffer lsp_servers %exp{
-        # vuels = { command = "vue-language-server", args = ["--stdio"], config = { typescript = { tsdk = "node_modules/typescript/lib/" } } }
-        # [vue-language-server]
-        # filetypes = ["vue"]
-
-        # command = "vue-language-server"
-        # args = ["--stdio"]
-        # root_globs = ["package.json", "tsconfig.json", ".git"]
-        # # This tells kak-lsp to send the 'init' sub-table as the root of initializationOptions
-        # settings_section = "init"
-        # [vue-language-server.settings.init]
-        # typescript = { tsdk = "node_modules/typescript/lib/" }
-        # vue = { hybridMode = false }
-        [typescript-language-server]
+        [vue-language-server]
         filetypes = ["vue"]
         root_globs = [".git", "pnpm-workspace.yaml"]
-        args = ["--stdio"]
+        # Behind lsp-compat-proxy.mjs for file watching kak-lsp lacks
+        command = "sh"
+        args = [
+            "-c",
+            """
+                exec node "${XDG_CONFIG_HOME:-$HOME/.config}/kak/lsp-compat-proxy.mjs" \
+                    "$HOME/.local/share/kak-lsp-servers/node_modules/.bin/vue-language-server" --stdio
+            """,
+        ]
         settings_section = "_"
-
-        [typescript-language-server.settings._.tsserver]
-        path = "./node_modules/typescript/lib/tsserver.js"
-        fallbackPath = "/Users/mahulst/.nvm/versions/node/v24.13.1/lib/node_modules/@vue/language-server/node_modules/typescript/lib/tsserver.js"
-
-        [[typescript-language-server.settings._.plugins]]
-        name = "@vue/typescript-plugin"
-        location = "%opt{vue_ts_plugin_location}"
-        languages = ["vue"]
-        # quotePreference = "double"
-        # typescript.format.semicolons = "insert"
-
-        # [vue-language-server]
-        # command = "npx"
-        # args = ["--no-install", "vue-language-server", "--stdio"]
-        # filetypes = ["vue"]
-        # root_globs = [
-        #     "package.json",
-        #     "tsconfig.json",
-        #     "jsconfig.json",
-        #     "pnpm-lock.yaml",
-        #     "yarn.lock",
-        #     ".git",
-        #     ".hg",
-        # ]
-        # [vue-language-server.initialization_options]
-        # typescript = { tsdk = "/Users/mahulst/projects/vue/vuets/node_modules/typescript/lib/" }
+        [vue-language-server.settings._]
+        typescript.tsdk = "%opt{vue_tsdk}"
+        vue.hybridMode = false
     }
 }
 
@@ -312,11 +306,13 @@ hook -group lsp-filetype-javascript global BufSetOption filetype=(?:javascript|t
             "-c",
             """
                 # typescript@7 is the native port and ships no tsserver.js;
-                # it speaks LSP itself via --lsp.
+                # it speaks LSP itself via --lsp. It only serves pull
+                # diagnostics and needs a file watcher, neither of which
+                # kak-lsp provides, so run it behind lsp-compat-proxy.mjs.
                 if [ -f node_modules/typescript/lib/getExePath.js ]; then
                     exe=$(node -e 'import("./node_modules/typescript/lib/getExePath.js").then(m => console.log(m.default()))' 2>/dev/null)
                     if [ -n "$exe" ] && [ -x "$exe" ]; then
-                        exec "$exe" --lsp --stdio
+                        exec node "${XDG_CONFIG_HOME:-$HOME/.config}/kak/lsp-compat-proxy.mjs" "$exe" --lsp --stdio
                     fi
                 fi
                 if [ -x node_modules/.bin/typescript-language-server ]; then
