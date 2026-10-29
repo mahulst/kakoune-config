@@ -1,12 +1,17 @@
-# Window management outside tmux: Ghostty windows tiled by Hyprland.
-# The window user mode and the ide command dispatch here when $TMUX is unset.
-# The Hyprland side lives in hypr.sh.
+# Window management outside tmux: windows tiled by Hyprland, either ghostty
+# windows or OS windows of the kitty the client runs in. The window user mode
+# and the ide command (kakrc, window-dispatch) come here unless the client runs
+# in tmux or kitty_splits is set. The Hyprland side lives in hypr.sh.
 
 declare-option -hidden str hypr_script %sh{ echo "${kak_source%/*}/hypr.sh" }
 
+# Terminal for new windows, a shell command gets appended. Clients inside kitty
+# don't use it: hypr.sh opens OS windows of their kitty instead (KITTY_LISTEN_ON).
+declare-option str hypr_termcmd 'ghostty -e sh -c'
+
 # Kakoune's wayland module doesn't know ghostty and falls back to foot
 hook global ModuleLoaded wayland %{
-    set-option global termcmd 'ghostty -e sh -c'
+    set-option global termcmd %opt{hypr_termcmd}
 }
 
 # The stock hyprland-focus uses the pre-Lua dispatch syntax and focuses by pid,
@@ -24,7 +29,7 @@ complete-command -menu hypr-focus client
 define-command hypr-split -params 1.. -docstring 'hypr-split <r|d> [<commands>]: open a client in a new window right/below' %{
     nop %sh{
         dir=$1; shift
-        TERMCMD="$kak_opt_termcmd" sh "$kak_opt_hypr_script" split "$dir" "$kak_session" "$@" </dev/null >/dev/null 2>&1 &
+        TERMCMD="$kak_opt_hypr_termcmd" KITTY_LISTEN_ON="$kak_client_env_KITTY_LISTEN_ON" sh "$kak_opt_hypr_script" split "$dir" "$kak_session" "$@" </dev/null >/dev/null 2>&1 &
     }
 }
 
@@ -39,13 +44,13 @@ define-command hypr-zoom -docstring 'toggle maximize of the focused window' %{
 # Runs in the background: the new clients have to connect to this server
 define-command -hidden hypr-ide-layout %{
     nop %sh{
-        TERMCMD="$kak_opt_termcmd" sh "$kak_opt_hypr_script" ide "$kak_session" </dev/null >/dev/null 2>&1 &
+        TERMCMD="$kak_opt_hypr_termcmd" KITTY_LISTEN_ON="$kak_client_env_KITTY_LISTEN_ON" sh "$kak_opt_hypr_script" ide "$kak_session" </dev/null >/dev/null 2>&1 &
     }
 }
 
 define-command -hidden hypr-ide-reset %{
     nop %sh{
-        TERMCMD="$kak_opt_termcmd" sh "$kak_opt_hypr_script" reset "$kak_session" </dev/null >/dev/null 2>&1 &
+        TERMCMD="$kak_opt_hypr_termcmd" KITTY_LISTEN_ON="$kak_client_env_KITTY_LISTEN_ON" sh "$kak_opt_hypr_script" reset "$kak_session" </dev/null >/dev/null 2>&1 &
     }
 }
 
@@ -53,7 +58,4 @@ define-command -hidden hypr-ide-reset %{
 # instead of a tiled one, like the tmux popup they get inside tmux
 define-command hypr-popup -params 1 -docstring 'hypr-popup <command>: run a command in a floating terminal' %{
     nop %sh{ setsid ghostty --class=kak.popup -e "$1" </dev/null >/dev/null 2>&1 & }
-}
-hook global ModuleLoaded fzf %{
-    set-option global fzf_popup_command hypr-popup
 }

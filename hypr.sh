@@ -10,6 +10,7 @@
 #   hypr.sh zoom                           toggle maximize of the focused window
 #
 # $TERMCMD is the terminal prefix that takes a shell command, e.g. 'ghostty -e sh -c'.
+# With $KITTY_LISTEN_ON set, new windows are OS windows of that kitty instead.
 
 dispatch() { hyprctl dispatch "$1" >/dev/null; }
 layoutmsg() { dispatch "hl.dsp.layout(\"$1\")"; }
@@ -33,7 +34,11 @@ spawn() {
     cmd="kak -c $session"
     [ $# -gt 0 ] && cmd="$cmd -e '$*'"
     before=$(active)
-    setsid $TERMCMD "$cmd" </dev/null >/dev/null 2>&1 &
+    if [ -n "$KITTY_LISTEN_ON" ]; then
+        kitten @ launch --type=os-window --cwd="$PWD" sh -c "$cmd" </dev/null >/dev/null 2>&1
+    else
+        setsid $TERMCMD "$cmd" </dev/null >/dev/null 2>&1 &
+    fi
     for _ in $(seq 50); do
         now=$(active)
         if [ "$now" != "$before" ] && [ "$now" != null ]; then

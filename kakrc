@@ -121,6 +121,7 @@ source ~/.config/kak/timesheet.kak
 source ~/.config/kak/http.kak
 source ~/.config/kak/hunk.kak
 source ~/.config/kak/hypr.kak
+source ~/.config/kak/kitty.kak
 source ~/.config/kak/vue.kak
 source ~/.config/kak/agentwatch.kak
 hook global WinCreate .* %{ kakboard-enable }
@@ -303,41 +304,61 @@ define-command -override toggle-wrap -docstring 'toggle line wrapping' %{
         echo 'wrap off'
     }
 }
-define-command tmux-split -params 2 -docstring 'split tmux pane' %{
-    nop %sh{
-        tmux split-window $1 kak -c "$kak_session" 
+# The window user mode and the ide command have three backends, picked per client:
+# tmux panes inside tmux, kitty splits inside kitty when kitty_splits is set
+# (kitty.kak), and Hyprland-tiled windows otherwise (hypr.kak; inside kitty those
+# are OS windows of the client's kitty).
+# window-dispatch <tmux command> <kitty command> <hyprland command> [args...]
+define-command -hidden window-dispatch -params 3.. %{
+    evaluate-commands %sh{
+        if [ -n "$kak_client_env_TMUX" ]; then cmd=$1
+        elif [ -n "$kak_client_env_KITTY_WINDOW_ID" ] && [ "$kak_opt_kitty_splits" = true ]; then cmd=$2
+        else cmd=$3
+        fi
+        shift 3
+        printf '%s' "$cmd"
+        for arg; do printf " '%s'" "$(printf %s "$arg" | sed "s/'/''/g")"; done
+        echo
     }
 }
 
-# tmux panes when inside tmux, otherwise hyprland windows (see hypr.kak)
-define-command window-split -params 1 -docstring 'window-split <h|v>: open a new client below (h) or right (v)' %{
-    evaluate-commands %sh{
-        if [ -n "$kak_client_env_TMUX" ]; then
-            [ "$1" = h ] && echo 'tmux-split -v new' || echo 'tmux-split -h new'
-        else
-            [ "$1" = h ] && echo 'hypr-split d' || echo 'hypr-split r'
-        fi
+define-command tmux-split -params 1 -docstring 'tmux-split <r|d>: open a client in a new pane right/below' %{
+    nop %sh{
+        [ "$1" = d ] && flag=-v || flag=-h
+        TMUX="$kak_client_env_TMUX" tmux split-window $flag kak -c "$kak_session"
     }
+}
+
+define-command tmux-select -params 1 -docstring 'tmux-select <l|d|u|r>: focus the pane in a direction' %{
+    nop %sh{ TMUX="$kak_client_env_TMUX" tmux select-pane -$(echo "$1" | tr ldur LDUR) }
+}
+
+define-command tmux-zoom -docstring 'toggle zoom of the current pane' %{
+    nop %sh{ TMUX="$kak_client_env_TMUX" tmux resize-pane -Z }
+}
+
+define-command window-split -params 1 -docstring 'window-split <h|v>: open a new client below (h) or right (v)' %{
+    window-dispatch tmux-split kitty-split hypr-split %sh{ [ "$1" = h ] && printf d || printf r }
 }
 
 define-command window-select -params 1 -docstring 'window-select <l|d|u|r>: focus the pane/window in a direction' %{
-    nop %sh{
-        if [ -n "$kak_client_env_TMUX" ]; then
-            TMUX="$kak_client_env_TMUX" tmux select-pane -$(echo "$1" | tr ldur LDUR)
-        else
-            sh "$kak_opt_hypr_script" select "$1"
-        fi
-    }
+    window-dispatch tmux-select kitty-select hypr-select %arg{1}
 }
 
 define-command window-zoom-toggle -docstring 'maximize/restore the current pane/window' %{
-    nop %sh{
-        if [ -n "$kak_client_env_TMUX" ]; then
-            TMUX="$kak_client_env_TMUX" tmux resize-pane -Z
-        else
-            sh "$kak_opt_hypr_script" zoom
-        fi
+    window-dispatch tmux-zoom kitty-zoom hypr-zoom
+}
+
+# fzf pickers: the plugin uses a tmux popup inside tmux; elsewhere a kitty
+# overlay or a floating ghostty window (class kak.popup, see hypr/hyprland.lua)
+define-command -hidden window-popup -params 1 %{
+    evaluate-commands %sh{
+        [ -n "$kak_client_env_KITTY_WINDOW_ID" ] && cmd=kitty-popup || cmd=hypr-popup
+        printf "%s '%s'\n" "$cmd" "$(printf %s "$1" | sed "s/'/''/g")"
     }
+}
+hook global ModuleLoaded fzf %{
+    set-option global fzf_popup_command window-popup
 }
 
 map global window -docstring 'select pane left' h ':window-select l<ret>'
@@ -365,6 +386,24 @@ map global window  -docstring 'focus docs' D ":focus docs<ret>"
 map global window  -docstring 'focus tools' T ":focus tools<ret>"
 map global window  -docstring 'focus code' C ":focus main<ret>"
 
+# name the current client as one of the ide clients and point the matching option at it
+declare-user-mode window-name
+define-command ide-name-client -params 1 -docstring %{ide-name-client <main|docs|tools>: rename the current client and set jumpclient/docsclient/toolsclient} %{
+    rename-client %arg{1}
+    evaluate-commands %sh{
+        case "$1" in
+            main)  echo "set-option global jumpclient main" ;;
+            docs)  echo "set-option global docsclient docs" ;;
+            tools) echo "set-option global toolsclient tools" ;;
+        esac
+    }
+    echo "client named %arg{1}"
+}
+map global window -docstring 'name client' n ':enter-user-mode window-name<ret>'
+map global window-name -docstring 'name code (main)' c ':ide-name-client main<ret>'
+map global window-name -docstring 'name docs' d ':ide-name-client docs<ret>'
+map global window-name -docstring 'name tools' t ':ide-name-client tools<ret>'
+
 define-command zoom -params 1 %{
     focus %arg{1}
     window-zoom-toggle
@@ -391,13 +430,7 @@ define-command ide  %{
     set-option global toolsclient tools
     set-option global docsclient docs
 
-    evaluate-commands %sh{
-        if [ -n "$kak_client_env_TMUX" ]; then
-            echo 'ide-tmux'
-        else
-            echo 'hypr-ide-layout'
-        fi
-    }
+    window-dispatch ide-tmux kitty-ide-layout hypr-ide-layout
 }
 
 define-command -hidden ide-tmux %{
@@ -431,13 +464,7 @@ define-command ide-reset -docstring 'restore the initial ide window layout' %{
         set-option global ide_docs_buffer %val{bufname}
         quit
     }
-    evaluate-commands -client main %sh{
-        if [ -n "$kak_client_env_TMUX" ]; then
-            echo 'ide-tmux'
-        else
-            echo 'hypr-ide-reset'
-        fi
-    }
+    evaluate-commands -client main %{ window-dispatch ide-tmux kitty-ide-reset hypr-ide-reset }
 }
 
 define-command close-ide %{

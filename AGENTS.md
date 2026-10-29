@@ -28,7 +28,7 @@ The config is organized around a few core ideas:
 
 3. **Multi-client IDE layout**
    - `ide` commands in `kakrc` create/coordinate `main`, `tools`, and `docs` clients.
-   - tmux-aware pane management (`zoom`, focus/select pane maps) is built in.
+   - Pane management (`zoom`, focus/select maps, `window-split`) dispatches per client via `window-dispatch`: tmux panes inside tmux, otherwise Hyprland-tiled windows (`hypr.kak` + `hypr.sh`; inside kitty these are OS windows of the client's kitty, opened over remote control). `kitty_splits` switches kitty clients to splits in the tab instead (`kitty.kak` + `kitty.sh`); fzf popups are a kitty overlay inside kitty.
    - Many modules assume `toolsclient` for output and `jumpclient` for file jumps.
 
 4. **Filetype-driven behavior**
@@ -99,7 +99,7 @@ This repo also stores local workflow data:
 
 Expected tools vary by workflow, but commonly include:
 
-- Core: `kak-lsp`, `rg`, `git`, `tmux`, `fzf`, `perl`, `curl`, `jq`
+- Core: `kak-lsp`, `rg`, `git`, `fzf`, `perl`, `curl`, `jq`, and one of `tmux`, `kitty` (remote control) or `hyprctl` for window management
 - JS/TS: `node`, `npx`, optionally `pnpm`, `eslint`, `tsc`, `jest`/`oxfmt`/`prettier`
 - Rust/C: `cargo`, `gcc`, optional `bear`
 - Other languages: `odin`, `jai`, `godot`
